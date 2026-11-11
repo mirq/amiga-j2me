@@ -1,0 +1,5 @@
+/build/
+/J2ME-Loader/
+*.o
+*.warpelf
+.DS_Store
