@@ -1,16 +1,27 @@
 /* WarpOS PPC HAL (MOS2WOS SDK).
- * Landmine (BlitzQuake_src docs): timer.device ReadEClock/GetSysTime LP calls
- * crash from a WarpOS PPC task on the target stack. So:
- *   - wall clock: dos DateStamp() (1/50 s)
- *   - fine ticks: PPC time base (mftb), calibrated against DateStamp once.
- * Every PPC->68k call is expensive (ms) - never use these in per-frame paths
- * except hal_ticks_us(), which is pure PPC. */
+ *
+ * Rules (learned in the BlitzQuake and civctp2 ports):
+ *  - Time and waits use powerpc.library's GetSysTimePPC / WaitTime, which
+ *    never leave the PPC. timer.device calls from a PPC task crash on the
+ *    target stack, and every PPC->68k call costs milliseconds.
+ *  - A "waker" PPC task wakes every 2 ms. When no PPC task is ready WarpOS
+ *    naps the PPC; in Amiberry's PowerPC emulation the task waiting for a
+ *    68k call is then resumed only ~59 s later. With the waker the scheduler
+ *    keeps running. On real hardware it costs a few hundred task switches/s.
+ *  - OS structures use the 68k's 2-byte alignment: OS headers go in under
+ *    #pragma pack(2).
+ */
 #include "hal.h"
-#pragma pack(push, 2)   /* OS structures use the 68k's 2-byte alignment */
+#pragma pack(push, 2)
+#include <exec/types.h>
 #include <exec/memory.h>
 #include <dos/dos.h>
+#include <utility/tagitem.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
+#include <powerpc/powerpc.h>
+#include <powerpc/powerpc_protos.h>
+#include <powerpc/tasksPPC.h>
 #pragma pack(pop)
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,38 +29,57 @@
 
 #define AMIGA_EPOCH_OFFSET 252460800LL
 
-static uint32_t tb_per_us = 0; /* time-base ticks per microsecond */
+static uint64_t s_base;
+static volatile int s_wakerQuit;
+static volatile int s_wakerRunning;
 
-static inline uint64_t read_tb(void)
+static uint64_t now_us(void)
 {
-    uint32_t hi, lo, hi2;
-    do {
-        __asm__ volatile ("mftbu %0" : "=r"(hi));
-        __asm__ volatile ("mftb %0"  : "=r"(lo));
-        __asm__ volatile ("mftbu %0" : "=r"(hi2));
-    } while (hi != hi2);
-    return ((uint64_t)hi << 32) | lo;
+    struct timeval tv;
+    GetSysTimePPC(&tv);
+    return (uint64_t)tv.tv_secs * 1000000u + tv.tv_micro;
 }
 
-static int32_t ds_ticks(void)
+/* touches nothing but these flags: no C library, no heap */
+static void waker(void)
 {
-    struct DateStamp d; DateStamp(&d);
-    return (d.ds_Minute * 60 * 50) + d.ds_Tick; /* ignore day wrap for calibration */
+    while (!s_wakerQuit) WaitTime(0, 2000);
+    s_wakerRunning = 0;
 }
 
-static void calibrate_tb(void)
+static void waker_start(void)
 {
-    int32_t t0, t1; uint64_t b0, b1;
-    t0 = ds_ticks(); while ((t1 = ds_ticks()) == t0) {}       /* align to tick edge */
-    b0 = read_tb();
-    while (ds_ticks() - t1 < 10) {}                            /* 10 ticks = 200 ms */
-    b1 = read_tb();
-    tb_per_us = (uint32_t)((b1 - b0) / 200000u);
-    if (!tb_per_us) tb_per_us = 1;
+    struct TagItem tags[] = {
+        { TASKATTR_CODE,      (ULONG)waker },
+        { TASKATTR_NAME,      (ULONG)"amiga-j2me waker" },
+        { TASKATTR_PRI,       (ULONG)-100 },
+        { TASKATTR_NICE,      20 },
+        { TASKATTR_INHERITR2, TRUE },
+        { TAG_DONE,           0 }
+    };
+    s_wakerQuit = 0;
+    s_wakerRunning = 1;
+    if (!CreateTaskPPC(tags)) s_wakerRunning = 0;
 }
 
-int hal_init(int argc, char **argv) { (void)argc; (void)argv; calibrate_tb(); return 0; }
-void hal_shutdown(void) {}
+/* the task's code is in this program: it must be gone before we unload */
+static void waker_stop(void)
+{
+    int i;
+    s_wakerQuit = 1;
+    for (i = 0; s_wakerRunning && i < 500; ++i) WaitTime(0, 2000);
+    WaitTime(0, 2000);
+}
+
+int hal_init(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    s_base = now_us();
+    waker_start();
+    return 0;
+}
+
+void hal_shutdown(void) { waker_stop(); }
 const char *hal_platform_name(void) { return "wos-ppc"; }
 
 void hal_log(const char *fmt, ...)
@@ -58,22 +88,22 @@ void hal_log(const char *fmt, ...)
     fflush(stdout);
 }
 
-int64_t hal_time_millis(void)
-{
-    struct DateStamp d; DateStamp(&d);
-    return ((int64_t)d.ds_Days * 86400 + (int64_t)d.ds_Minute * 60 + AMIGA_EPOCH_OFFSET) * 1000
-           + (int64_t)d.ds_Tick * 20;
-}
-
-uint32_t hal_ticks_us(void) { return (uint32_t)(read_tb() / tb_per_us); }
-uint64_t hal_monotonic_micros(void) { return read_tb() / tb_per_us; }
-
 void hal_write_console(const char *s, int len)
 {
     fwrite(s, 1, (size_t)len, stdout); fflush(stdout);
 }
 
-void hal_sleep_ms(uint32_t ms) { ULONG t = (ms + 19) / 20; Delay(t ? t : 1); }
+int64_t hal_time_millis(void)
+{
+    struct timeval tv;
+    GetSysTimePPC(&tv);
+    return ((int64_t)tv.tv_secs + AMIGA_EPOCH_OFFSET) * 1000 + tv.tv_micro / 1000;
+}
+
+uint64_t hal_monotonic_micros(void) { return now_us() - s_base; }
+uint32_t hal_ticks_us(void) { return (uint32_t)hal_monotonic_micros(); }
+
+void hal_sleep_ms(uint32_t ms) { if (ms) WaitTime(0, (ULONG)ms * 1000u); }
 
 /* PPC-side RAM: malloc is hal/amiga/amiga_malloc.c (AllocVecPPC slabs) */
 void *hal_alloc(size_t size) { return malloc(size); }
@@ -91,5 +121,5 @@ void *hal_load_file(const char *path, size_t *out_size)
     return buf;
 }
 
-/* the OS already provides a big enough stack here */
+/* the WarpOS executable carries its stack size (elf2warpos --stack) */
 int hal_run_with_stack(int (*fn)(void), size_t size) { (void)size; return fn(); }

@@ -53,8 +53,19 @@ endif()
 target_compile_options(hal PRIVATE -Wall -Wextra)
 
 # aj_add_program(name sources...): normal executable, or ET_REL .warpelf on WarpOS
+if(AJ_TARGET STREQUAL "wos-ppc")
+  # Host tool: ET_REL .warpelf -> WarpOS hunk executable (replaces the
+  # Amiga-side Elf2Exe2). From the civctp2 Amiga port.
+  set(ELF2WARPOS ${CMAKE_BINARY_DIR}/elf2warpos)
+  add_custom_command(OUTPUT ${ELF2WARPOS}
+    COMMAND cc -O2 -o ${ELF2WARPOS} ${CMAKE_SOURCE_DIR}/tools/elf2warpos/elf2warpos.c
+    DEPENDS ${CMAKE_SOURCE_DIR}/tools/elf2warpos/elf2warpos.c
+            ${CMAKE_SOURCE_DIR}/tools/elf2warpos/stub.inc)
+  add_custom_target(elf2warpos_tool DEPENDS ${ELF2WARPOS})
+endif()
+
 # aj_add_program(name src... [LIBS lib...]): normal executable, or an ET_REL
-# .warpelf on WarpOS (converted on the Amiga with Elf2Exe2)
+# .warpelf on WarpOS, converted to a WarpOS executable by tools/elf2warpos
 function(aj_add_program name)
   cmake_parse_arguments(P "" "" "LIBS" ${ARGN})
   if(AJ_TARGET STREQUAL "wos-ppc")
@@ -72,7 +83,9 @@ function(aj_add_program name)
               --start-group -lamigawos -lgccwos -lm -lglosswos -lcwos -lglosswos -lgccwos --end-group
               ${WOS_SDK_ROOT}/lib/end.o
       COMMAND ${CMAKE_SOURCE_DIR}/tools/validate-etrel.sh ${WOS_TOOLCHAIN_BIN} ${out}
-      DEPENDS ${name}_obj hal ${P_LIBS} $<TARGET_OBJECTS:${name}_obj> COMMAND_EXPAND_LISTS)
+      COMMAND ${ELF2WARPOS} --stack 1048576 ${out} ${CMAKE_CURRENT_BINARY_DIR}/${name}
+      DEPENDS ${name}_obj hal ${P_LIBS} $<TARGET_OBJECTS:${name}_obj> ${ELF2WARPOS}
+              ${CMAKE_SOURCE_DIR}/cmake/warpos-etrel.ld COMMAND_EXPAND_LISTS)
     add_custom_target(${name} ALL DEPENDS ${out})
   else()
     add_executable(${name} ${P_UNPARSED_ARGUMENTS})
