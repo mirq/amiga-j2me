@@ -1,0 +1,111 @@
+/*
+ * amiga-j2me: MIDP 2.0 implementation for the Amiga J2ME runtime.
+ * Written for this project; licensed under GPLv2 (see COPYING).
+ */
+package aj;
+
+import java.io.InputStream;
+import java.util.Hashtable;
+import javax.microedition.lcdui.Display;
+import javax.microedition.midlet.MIDlet;
+
+/**
+ * Starts a MIDlet and runs the event thread.
+ *
+ *   aj.Launcher [-w WIDTH] [-h HEIGHT] [MIDletClass]
+ *
+ * Without a class name, the first MIDlet of the JAR's manifest is started
+ * (MIDlet-1: name, icon, class).
+ */
+public final class Launcher {
+    private static final Hashtable props = new Hashtable();
+    private static volatile boolean destroyed;
+
+    private Launcher() {}
+
+    public static String getAppProperty(String key) {
+        if (key == null) throw new NullPointerException();
+        return (String) props.get(key);
+    }
+
+    public static void midletDestroyed() { destroyed = true; }
+
+    /** "Key: value" lines, with continuation lines that start with a space. */
+    private static void readManifest(InputStream in) throws java.io.IOException {
+        StringBuffer line = new StringBuffer();
+        int c;
+        String key = null;
+        do {
+            c = in.read();
+            if (c == '\r') continue;
+            if (c == '\n' || c < 0) {
+                String s = line.toString();
+                line.setLength(0);
+                if (s.length() > 0 && s.charAt(0) == ' ' && key != null) {
+                    props.put(key, (String) props.get(key) + s.substring(1));
+                } else {
+                    int colon = s.indexOf(':');
+                    if (colon > 0) {
+                        key = s.substring(0, colon).trim();
+                        props.put(key, s.substring(colon + 1).trim());
+                    }
+                }
+            } else {
+                line.append((char) c);     // manifests are UTF-8; ASCII keys are what matter here
+            }
+        } while (c >= 0);
+    }
+
+    public static void main(String[] args) {
+        int w = 240, h = 320;
+        String className = null;
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("-w") && i + 1 < args.length) w = Integer.parseInt(args[++i]);
+            else if (args[i].equals("-h") && i + 1 < args.length) h = Integer.parseInt(args[++i]);
+            else className = args[i];
+        }
+
+        try {
+            InputStream in = Launcher.class.getResourceAsStream("/META-INF/MANIFEST.MF");
+            if (in != null) {
+                readManifest(in);
+                in.close();
+            }
+        } catch (Throwable t) {
+            System.out.println("manifest: " + t);
+        }
+        if (className == null) {
+            String m1 = (String) props.get("MIDlet-1");
+            if (m1 != null) className = m1.substring(m1.lastIndexOf(',') + 1).trim();
+        }
+        if (className == null) {
+            System.out.println("No MIDlet class: give one, or a JAR with MIDlet-1 in its manifest");
+            return;
+        }
+
+        Display.open(w, h);
+        MIDlet midlet = null;
+        try {
+            midlet = (MIDlet) Class.forName(className).newInstance();
+            MIDlet.start(midlet);
+            Display d = Display.getDisplay(midlet);
+            while (!destroyed && !d.quitRequested()) {
+                if (!d.runOnce()) {
+                    try {
+                        Thread.sleep(5);
+                    } catch (InterruptedException e) {
+                        // keep looping
+                    }
+                } else {
+                    Thread.yield();
+                }
+            }
+        } catch (Throwable t) {
+            System.out.println("MIDlet failed: " + t);
+            t.printStackTrace();
+        }
+        if (midlet != null && !destroyed) MIDlet.destroy(midlet);
+        Display.close();
+        System.exit(0);     // the MIDlet's own threads may still be running
+    }
+}

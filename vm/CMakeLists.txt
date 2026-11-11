@@ -4,8 +4,12 @@ set(PM ${CMAKE_SOURCE_DIR}/vm/phoneme-cldc/src)
 set(VMGEN ${CMAKE_SOURCE_DIR}/build/vmgen/amiga_c/target CACHE PATH "generated CLDC-HI target tree")
 set(VM_BUILD release CACHE STRING "release or debug (debug checks oopmaps and asserts)")
 
+set(AJ_API ${CMAKE_SOURCE_DIR}/build/api CACHE PATH "class library + natives table (tools/build-classes.sh)")
 if(NOT EXISTS ${VMGEN}/generated/jvmconfig.h)
   message(FATAL_ERROR "Run tools/gen-vm-amiga.sh first (missing ${VMGEN}/generated)")
+endif()
+if(NOT EXISTS ${AJ_API}/NativesTable.cpp)
+  message(FATAL_ERROR "Run tools/build-classes.sh first (missing ${AJ_API}/NativesTable.cpp)")
 endif()
 
 # empty ROM image (non-romized build: classes are loaded from cldc_classes.zip)
@@ -18,7 +22,7 @@ set(VM_SRC
   ${VMGEN}/generated/_MergedSrc004.cpp
   ${VMGEN}/generated/_MergedSrc005.cpp
   ${VMGEN}/generated/_MergedSrc006.cpp
-  ${VMGEN}/generated/NativesTable.cpp
+  ${AJ_API}/NativesTable.cpp
   ${VMGEN}/${VM_BUILD}/OopMaps.cpp
   ${CMAKE_BINARY_DIR}/vmgen/ROMImage.cpp
   ${PM}/vm/cpu/c/FloatSupport_c.cpp
@@ -36,6 +40,11 @@ set(VM_SRC
   ${PM}/vm/os/amiga/OsMemory_amiga.cpp
   ${PM}/vm/os/amiga/OsMisc_amiga.cpp
   ${PM}/vm/os/amiga/OsSocket_amiga.cpp
+  # the runtime's own natives (aj.Native) and what they are built on
+  ${CMAKE_SOURCE_DIR}/native/kni/natives_gfx.c
+  ${CMAKE_SOURCE_DIR}/native/gfx/gfx.c
+  ${CMAKE_SOURCE_DIR}/native/gfx/gfx_decode.c
+  ${CMAKE_SOURCE_DIR}/native/gfx/fontdata.c
 )
 
 if(AJ_TARGET STREQUAL "host")
@@ -56,7 +65,8 @@ set(VM_INC ${VMGEN}/generated
   ${PM}/vm/share/memory ${PM}/vm/share/memoryprofiler ${PM}/vm/share/natives
   ${PM}/vm/share/reflection ${PM}/vm/share/ROM ${PM}/vm/share/runtime
   ${PM}/vm/share/utilities ${PM}/vm/share/verifier)
-target_include_directories(cldcvm PRIVATE ${VM_INC})
+target_include_directories(cldcvm PRIVATE ${VM_INC}
+  ${CMAKE_SOURCE_DIR}/native/gfx ${CMAKE_SOURCE_DIR}/third_party/stb)
 target_include_directories(cldcvm PUBLIC ${PM}/vm/share/natives ${PM}/vm/share/runtime)
 
 if(AJ_TARGET STREQUAL "host")
