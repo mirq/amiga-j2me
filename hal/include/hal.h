@@ -37,6 +37,12 @@ void  hal_free(void *p);
  * opening a directory as a file hangs in the WarpOS C library. */
 int hal_path_type(const char *path);
 void *hal_load_file(const char *path, size_t *out_size); /* free with hal_free */
+/* Writes the whole file (replacing it). 0 = ok. */
+int hal_save_file(const char *path, const void *data, size_t size);
+int hal_delete_file(const char *path);      /* 0 = ok */
+int hal_make_dir(const char *path);         /* 0 = ok or exists */
+/* Calls cb(name, user) for every plain file in the directory. 0 = ok. */
+int hal_list_dir(const char *path, void (*cb)(const char *name, void *user), void *user);
 
 /* ---- video: one R5G6B5 picture (native-endian 16-bit words) ---- */
 typedef struct HalRect { int32_t x, y, w, h; } HalRect;

@@ -17,4 +17,10 @@ public final class GameAccess {
         Display d = Display.instance;
         if (d != null) d.presentBuffer(buffer, x, y, w, h);
     }
+
+    /** Pixel-level collision: is the image's pixel fully or partly opaque? */
+    public static boolean isOpaque(Image img, int x, int y) {
+        if (x < 0 || y < 0 || x >= img.w || y >= img.h) return false;
+        return img.alpha == null || img.alpha[y * img.w + x] != 0;
+    }
 }

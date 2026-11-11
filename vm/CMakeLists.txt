@@ -42,6 +42,7 @@ set(VM_SRC
   ${PM}/vm/os/amiga/OsSocket_amiga.cpp
   # the runtime's own natives (aj.Native) and what they are built on
   ${CMAKE_SOURCE_DIR}/native/kni/natives_gfx.c
+  ${CMAKE_SOURCE_DIR}/native/kni/natives_io.c
   ${CMAKE_SOURCE_DIR}/native/gfx/gfx.c
   ${CMAKE_SOURCE_DIR}/native/gfx/gfx_decode.c
   ${CMAKE_SOURCE_DIR}/native/gfx/fontdata.c

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
 
 int hal_init(int argc, char **argv) { (void)argc; (void)argv; return 0; }
 void hal_shutdown(void) {}
@@ -70,6 +72,32 @@ void *hal_load_file(const char *path, size_t *out_size)
 
 /* the OS already provides a big enough stack here */
 int hal_run_with_stack(int (*fn)(void), size_t size) { (void)size; return fn(); }
+
+int hal_save_file(const char *path, const void *data, size_t size)
+{
+    FILE *f = fopen(path, "wb"); int ok;
+    if (!f) return -1;
+    ok = fwrite(data, 1, size, f) == size;
+    return (fclose(f) == 0 && ok) ? 0 : -1;
+}
+
+int hal_delete_file(const char *path) { return unlink(path) == 0 ? 0 : -1; }
+
+int hal_make_dir(const char *path)
+{
+    if (hal_path_type(path) == 2) return 0;
+    return mkdir(path, 0777) == 0 ? 0 : -1;
+}
+
+int hal_list_dir(const char *path, void (*cb)(const char *name, void *user), void *user)
+{
+    DIR *d = opendir(path); struct dirent *e;
+    if (!d) return -1;
+    while ((e = readdir(d)) != NULL)
+        if (e->d_name[0] != '.') cb(e->d_name, user);
+    closedir(d);
+    return 0;
+}
 
 /* ---- video: offscreen picture, dumped as PPM for tests ---- */
 static uint16_t *s_fb;

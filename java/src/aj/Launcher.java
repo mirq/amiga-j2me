@@ -12,7 +12,7 @@ import javax.microedition.midlet.MIDlet;
 /**
  * Starts a MIDlet and runs the event thread.
  *
- *   aj.Launcher [-w WIDTH] [-h HEIGHT] [MIDletClass]
+ *   aj.Launcher [-w WIDTH] [-h HEIGHT] [-rms DIR] [MIDletClass]
  *
  * Without a class name, the first MIDlet of the JAR's manifest is started
  * (MIDlet-1: name, icon, class).
@@ -20,6 +20,10 @@ import javax.microedition.midlet.MIDlet;
 public final class Launcher {
     private static final Hashtable props = new Hashtable();
     private static volatile boolean destroyed;
+    private static String storage = "rms";
+
+    /** Directory of the record store files (-rms DIR). */
+    public static String storageDir() { return storage; }
 
     private Launcher() {}
 
@@ -62,6 +66,7 @@ public final class Launcher {
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-w") && i + 1 < args.length) w = Integer.parseInt(args[++i]);
             else if (args[i].equals("-h") && i + 1 < args.length) h = Integer.parseInt(args[++i]);
+            else if (args[i].equals("-rms") && i + 1 < args.length) storage = args[++i];
             else className = args[i];
         }
 
@@ -105,6 +110,7 @@ public final class Launcher {
             t.printStackTrace();
         }
         if (midlet != null && !destroyed) MIDlet.destroy(midlet);
+        javax.microedition.rms.RecordStore.flushAll();
         Display.close();
         System.exit(0);     // the MIDlet's own threads may still be running
     }

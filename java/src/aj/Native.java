@@ -53,4 +53,12 @@ public final class Native {
     public static native int pollEvent(int[] ev);
     public static native void waitEvent(int ms);
     public static native int screenshot();
+
+    /** Whole-file access (record stores). readFile returns null when there is no such file. */
+    public static native byte[] readFile(String path);
+    public static native int writeFile(String path, byte[] data, int len);
+    public static native int deleteFile(String path);
+    public static native int makeDir(String path);
+    /** Names of the plain files in a directory, each followed by a newline. */
+    public static native String listFiles(String dir);
 }

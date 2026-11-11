@@ -91,6 +91,45 @@ void *hal_load_file(const char *path, size_t *out_size)
     return buf;
 }
 
+int hal_save_file(const char *path, const void *data, size_t size)
+{
+    FILE *f = fopen(path, "wb"); int ok;
+    if (!f) return -1;
+    ok = fwrite(data, 1, size, f) == size;
+    return (fclose(f) == 0 && ok) ? 0 : -1;
+}
+
+int hal_delete_file(const char *path) { return DeleteFile((CONST_STRPTR)path) ? 0 : -1; }
+
+int hal_make_dir(const char *path)
+{
+    BPTR lock;
+    if (hal_path_type(path) == 2) return 0;
+    lock = CreateDir((CONST_STRPTR)path);
+    if (!lock) return -1;
+    UnLock(lock);
+    return 0;
+}
+
+int hal_list_dir(const char *path, void (*cb)(const char *name, void *user), void *user)
+{
+    int rc = -1;
+    BPTR lock = Lock((CONST_STRPTR)path, ACCESS_READ);
+    if (lock) {
+        struct FileInfoBlock *fib = (struct FileInfoBlock *)AllocDosObject(DOS_FIB, NULL);
+        if (fib) {
+            if (Examine(lock, fib)) {
+                rc = 0;
+                while (ExNext(lock, fib))
+                    if (fib->fib_DirEntryType < 0) cb((const char *)fib->fib_FileName, user);
+            }
+            FreeDosObject(DOS_FIB, fib);
+        }
+        UnLock(lock);
+    }
+    return rc;
+}
+
 /* ---- video ---- */
 
 int hal_video_open(int width, int height)
