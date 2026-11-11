@@ -2045,7 +2045,8 @@ endif
 
 # statically link romgen, so that it can be used on another Linux distribution
 # that may have an incompatible libc.so
-ifeq ($(host_os)-$(IsRomGen), linux-true)
+# amiga-j2me: opt-in only - glibc 2.39 i386 static libm.a lacks fmod/fmodf
+ifeq ($(host_os)-$(IsRomGen)-$(ROMGEN_STATIC), linux-true-true)
 LINK_FLAGS             += -static
 endif
 
