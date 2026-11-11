@@ -6,4 +6,5 @@
 - License: GPLv2 only (see `vm/phoneme-legal/license.txt`)
 - VM: CLDC-HI with the portable C interpreter loop (`src/vm/cpu/c`, see `README.cloop`)
 
-Pristine copy for diffing: re-clone the commit above. Keep our changes as a patch series in `vm/patches/`.
+Our changes to the imported tree are separate git commits on top of the pristine import
+(`git log -- vm/phoneme-cldc`), each marked `amiga-j2me:` in the code where practical.

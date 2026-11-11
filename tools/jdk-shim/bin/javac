@@ -1,0 +1,19 @@
+#!/bin/sh
+# javac wrapper for the phoneME build (JDK_DIR=tools/jdk-shim).
+#  - with -bootclasspath (CLDC/MIDP class libraries): ECJ, -source/-target 1.4
+#  - otherwise (host build tools): system JDK javac, --release 8
+HERE=$(cd "$(dirname "$0")/../.." && pwd)
+for a in "$@"; do [ "$a" = "-J-version" ] && exec java -version; done
+case " $* " in
+  *" -bootclasspath "*)
+    exec java -jar "$HERE/ecj-4.6.1.jar" -nowarn "$@" ;;
+esac
+# strip -source/-target pairs for the modern javac
+skip=0; n=$#
+for a in "$@"; do
+  if [ $skip = 1 ]; then skip=0
+  elif [ "$a" = "-source" ] || [ "$a" = "-target" ]; then skip=1
+  else set -- "$@" "$a"; fi
+done
+shift $n
+exec javac --release 8 -nowarn -Xlint:none "$@"
