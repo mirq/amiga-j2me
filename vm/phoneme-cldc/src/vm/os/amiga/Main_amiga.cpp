@@ -6,14 +6,21 @@
 #include "incls/_precompiled.incl"
 #include "incls/_Main_amiga.cpp.incl"
 #include "hal.h"
+#include <setjmp.h>
 
 void JVMSPI_PrintRaw(const char* s, int length) {
   hal_write_console(s, length);
 }
 
+/* JVMSPI_Exit must not return: jump back into aj_vm_main(), which returns
+ * the code to the platform main() (so the HAL can restore the stack and
+ * close what it opened; a plain exit() would skip that). */
+static jmp_buf aj_exit_jmp;
+static int     aj_exit_code;
+
 void JVMSPI_Exit(int code) {
-  /* Returning lets JVM_Start() return to aj_vm_main(). */
-  (void)code;
+  aj_exit_code = code;
+  longjmp(aj_exit_jmp, 1);
 }
 
 jboolean JVMSPI_IsRestrictedPackage(const char* pkg_name, int name_length) {
@@ -25,6 +32,9 @@ jboolean JVMSPI_IsRestrictedPackage(const char* pkg_name, int name_length) {
  * hal_init(). argv[0] is the program name. */
 extern "C" int aj_vm_main(int argc, char **argv) {
   int code = 0;
+  if (setjmp(aj_exit_jmp)) {
+    return aj_exit_code;
+  }
   JVM_Initialize();
   argc--; argv++;
   while (true) {

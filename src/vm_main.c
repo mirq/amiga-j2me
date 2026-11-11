@@ -1,6 +1,5 @@
 /* amiga-j2me: console launcher for the CLDC-HI VM.
- * usage: aj_cldc [VM options] -classpath "<cldc_classes.zip>;<dir|jar>" MainClass
- * (quote the classpath in an AmigaDOS shell: ';' starts a comment there) */
+ * usage: aj_cldc [VM options] -classpath <cldc_classes.zip>,<dir|jar> MainClass */
 #include "hal.h"
 
 int aj_vm_main(int argc, char **argv);

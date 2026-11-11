@@ -9,8 +9,9 @@ extern "C" {
 #endif
 typedef FILE *OsFile_Handle;
 const char OsFile_separator_char      = '/';
-/* ':' is the Amiga volume separator, so classpaths use ';' */
-const char OsFile_path_separator_char = ';';
+/* ':' is the Amiga volume separator and ';' starts a comment in AmigaDOS
+ * scripts, so classpath entries are separated by ',' */
+const char OsFile_path_separator_char = ',';
 #ifdef __cplusplus
 }
 #endif
