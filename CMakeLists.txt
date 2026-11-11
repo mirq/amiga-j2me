@@ -23,12 +23,32 @@ else()
   message(FATAL_ERROR "Unsupported AJ_TARGET ${AJ_TARGET}")
 endif()
 
+# fast size-class malloc over exec AllocMem / AllocVecPPC (see the file)
+if(AJ_TARGET STREQUAL "aos3-m68k")
+  list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)
+  set(AJ_MALLOC_DEF AJ_AMIGA_060)
+elseif(AJ_TARGET STREQUAL "wos-ppc")
+  list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)
+  set(AJ_MALLOC_DEF AJ_AMIGA_WOS)
+endif()
+
 add_library(hal STATIC ${HAL_SRC})
+if(AJ_MALLOC_DEF)
+  target_compile_definitions(hal PRIVATE ${AJ_MALLOC_DEF})
+endif()
 target_include_directories(hal PUBLIC hal/include)
 if(AJ_TARGET STREQUAL "host")
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-  target_link_libraries(hal PUBLIC PkgConfig::SDL2)   # display/audio backend from M2
+  # SDL2 window only for 64-bit host builds; the 32-bit VM host build
+  # (host32 toolchain) renders offscreen and dumps PPM screenshots.
+  if(NOT CMAKE_C_FLAGS MATCHES "-m32")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
+    if(SDL2_FOUND)
+      target_link_libraries(hal PUBLIC PkgConfig::SDL2)
+      target_compile_definitions(hal PUBLIC AJ_HAVE_SDL=1)
+    endif()
+  endif()
+  target_link_libraries(hal PUBLIC m)
 endif()
 target_compile_options(hal PRIVATE -Wall -Wextra)
 
@@ -62,6 +82,6 @@ endfunction()
 
 aj_add_program(aj_hello src/hello.c)
 
-if(NOT AJ_TARGET STREQUAL "host")
+if(NOT AJ_TARGET STREQUAL "host" OR CMAKE_C_FLAGS MATCHES "-m32")
   add_subdirectory(vm)
 endif()

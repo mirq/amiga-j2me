@@ -12,6 +12,10 @@ int  hal_init(int argc, char **argv);   /* 0 = ok */
 void hal_shutdown(void);
 const char *hal_platform_name(void);
 
+/* Run fn() on a stack of at least `size` bytes (AOS3 CLI default is 4 KB).
+ * Returns fn's result, or -1 if the stack could not be allocated. */
+int hal_run_with_stack(int (*fn)(void), size_t size);
+
 /* console / logging */
 void hal_log(const char *fmt, ...);
 void hal_write_console(const char *s, int len);  /* raw, unbuffered-ish */

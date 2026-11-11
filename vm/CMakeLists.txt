@@ -38,6 +38,14 @@ set(VM_SRC
   ${PM}/vm/os/amiga/OsSocket_amiga.cpp
 )
 
+if(AJ_TARGET STREQUAL "host")
+  # x87 helpers (JFP_lib_*_x86) used by FloatSupport_c on i386
+  enable_language(ASM)
+  set_source_files_properties(${PM}/vm/cpu/c/AsmStubs_i386.s PROPERTIES
+    LANGUAGE ASM COMPILE_OPTIONS "-x;assembler-with-cpp;-Dlinux;-m32")
+  list(APPEND VM_SRC ${PM}/vm/cpu/c/AsmStubs_i386.s)
+endif()
+
 add_library(cldcvm STATIC ${VM_SRC})
 target_link_libraries(cldcvm PUBLIC hal)
 
@@ -51,10 +59,15 @@ set(VM_INC ${VMGEN}/generated
 target_include_directories(cldcvm PRIVATE ${VM_INC})
 target_include_directories(cldcvm PUBLIC ${PM}/vm/share/natives ${PM}/vm/share/runtime)
 
+if(AJ_TARGET STREQUAL "host")
+  set(VM_ENDIAN HARDWARE_LITTLE_ENDIAN=1 HOST_LITTLE_ENDIAN=1
+                MSW_FIRST_FOR_DOUBLE=0 MSW_FIRST_FOR_LONG=0)
+else()
+  set(VM_ENDIAN HARDWARE_LITTLE_ENDIAN=0 HOST_LITTLE_ENDIAN=0
+                MSW_FIRST_FOR_DOUBLE=1 MSW_FIRST_FOR_LONG=1)
+endif()
 target_compile_definitions(cldcvm PRIVATE
-  AMIGA_J2ME=1 GCC=1 REQUIRES_JVMCONFIG_H=1
-  HARDWARE_LITTLE_ENDIAN=0 HOST_LITTLE_ENDIAN=0
-  MSW_FIRST_FOR_DOUBLE=1 MSW_FIRST_FOR_LONG=1
+  AMIGA_J2ME=1 GCC=1 REQUIRES_JVMCONFIG_H=1 ${VM_ENDIAN}
   SUPPORTS_MONOTONIC_CLOCK=1
   JVM_RELEASE_VERSION="1.1" JVM_BUILD_VERSION="amiga-j2me" JVM_NAME="phoneME Feature VM")
 if(VM_BUILD STREQUAL "debug")

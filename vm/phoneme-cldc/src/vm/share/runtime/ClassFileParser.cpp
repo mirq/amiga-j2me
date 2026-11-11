@@ -1850,7 +1850,7 @@ ReturnOop ClassFileParser::parse_class_internal(ClassParserState *stack JVM_TRAP
       InstanceClass::find_method(&methods, Symbols::finalize_name(),
                                  Symbols::void_signature());
     if (fm.not_null() && fm().is_private() && fm().is_native()) {
-#if !USE_SOURCE_IMAGE_GENERATOR
+#if !USE_SOURCE_IMAGE_GENERATOR && ENABLE_DYNAMIC_NATIVE_METHODS /* amiga-j2me: static natives are bound later, in register_natives_for() */
       if (fm().get_native_code() == (address)Java_void_unimplemented) {
         access_flags.set_has_unresolved_finalizer();
       }
@@ -1858,7 +1858,7 @@ ReturnOop ClassFileParser::parse_class_internal(ClassParserState *stack JVM_TRAP
       access_flags.set_has_finalizer();
     } else if (super_class().has_finalizer()) {
       access_flags.set_has_finalizer();
-#if !USE_SOURCE_IMAGE_GENERATOR
+#if !USE_SOURCE_IMAGE_GENERATOR && ENABLE_DYNAMIC_NATIVE_METHODS
       if (super_class().has_unresolved_finalizer()) {
         access_flags.set_has_unresolved_finalizer();
       }

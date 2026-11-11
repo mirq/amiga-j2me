@@ -6,10 +6,12 @@
  * Every PPC->68k call is expensive (ms) - never use these in per-frame paths
  * except hal_ticks_us(), which is pure PPC. */
 #include "hal.h"
+#pragma pack(push, 2)   /* OS structures use the 68k's 2-byte alignment */
 #include <exec/memory.h>
 #include <dos/dos.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
+#pragma pack(pop)
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,7 +75,7 @@ void hal_write_console(const char *s, int len)
 
 void hal_sleep_ms(uint32_t ms) { ULONG t = (ms + 19) / 20; Delay(t ? t : 1); }
 
-/* PPC-side RAM; newlib malloc is backed by the SDK's PPC pool */
+/* PPC-side RAM: malloc is hal/amiga/amiga_malloc.c (AllocVecPPC slabs) */
 void *hal_alloc(size_t size) { return malloc(size); }
 void  hal_free(void *p) { free(p); }
 
@@ -88,3 +90,6 @@ void *hal_load_file(const char *path, size_t *out_size)
     if (buf && out_size) *out_size = (size_t)n;
     return buf;
 }
+
+/* the OS already provides a big enough stack here */
+int hal_run_with_stack(int (*fn)(void), size_t size) { (void)size; return fn(); }

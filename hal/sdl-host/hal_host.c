@@ -58,3 +58,6 @@ void *hal_load_file(const char *path, size_t *out_size)
     if (buf && out_size) *out_size = (size_t)n;
     return buf;
 }
+
+/* the OS already provides a big enough stack here */
+int hal_run_with_stack(int (*fn)(void), size_t size) { (void)size; return fn(); }
