@@ -4,9 +4,6 @@
 
 int aj_vm_main(int argc, char **argv);
 
-#if defined(__MORPHOS__)
-unsigned long __stack = 512 * 1024;   /* honoured by the MorphOS startup code */
-#endif
 
 static int s_argc;
 static char **s_argv;

@@ -18,7 +18,7 @@ set(CMAKE_RANLIB     ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-ranlib)
 set(WOS_LD           ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-ld)
 set(CMAKE_C_COMPILER_WORKS TRUE)   # can't link a test exe the normal way
 
-set(WOS_ARCH_CFLAGS "-mcpu=${WOS_CPU} -mcall-sysv -mbig-endian -mmultiple -fno-pic -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-jump-tables")
+set(WOS_ARCH_CFLAGS "-mcpu=${WOS_CPU} -mcall-sysv -mbig-endian -mmultiple -fno-pic -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-jump-tables -fsigned-char -fno-common -msdata=none -G0")
 set(WOS_CPPFLAGS "-nostdinc -U__AMIGAOS4__ -U__AMIGAOS4 -UAMIGAOS4 -U__amigaos4__ -U__amigaos4 -Uamigaos4 -U__NEWLIB__ -D__PPC__ -DWARPUP -DNEWLIB -DWOS \
  -isystem ${WOS_SDK_ROOT}/newlib/include -isystem ${WOS_SDK_ROOT}/os-includeppc -isystem ${WOS_SDK_ROOT}/include -isystem ${WOS_SDK_ROOT}/gcc-include")
 set(CMAKE_C_FLAGS_INIT "${WOS_ARCH_CFLAGS} ${WOS_CPPFLAGS}")
