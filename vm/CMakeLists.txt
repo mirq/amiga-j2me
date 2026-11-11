@@ -88,5 +88,11 @@ if(NOT AJ_TARGET STREQUAL "aos3-m68k")
   target_compile_options(cldcvm PRIVATE -fpermissive -Wno-narrowing -fno-lifetime-dse)
 endif()
 
+# The VM assumes plain char is signed (true on every platform Sun built it
+# for); PowerPC SysV compilers default to unsigned.
+if(AJ_TARGET STREQUAL "wos-ppc" OR AJ_TARGET STREQUAL "morphos-ppc")
+  target_compile_options(cldcvm PRIVATE -fsigned-char)
+endif()
+
 # VM launcher (console): cldc_vm -classpath <cldc_classes.zip>;<app> Main
 aj_add_program(aj_cldc ${CMAKE_SOURCE_DIR}/src/vm_main.c LIBS cldcvm)

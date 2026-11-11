@@ -530,9 +530,11 @@ bool Universe::bootstrap(const JvmPathChar* classpath) {
     // We need a pretty big heap to load the bootstrap classes.
     HeapMin = 200 * 1024;
   }
+  AJ_TRACE("ObjectHeap::create");
   if (!ObjectHeap::create()) {
     return false;
   }
+  AJ_TRACE("Scheduler::initialize");
 #if ENABLE_TRAMPOLINE && !CROSS_GENERATOR
   BranchTable::init();
 #endif
@@ -545,6 +547,7 @@ bool Universe::bootstrap(const JvmPathChar* classpath) {
       return false;
     }
   } else {
+    AJ_TRACE("bootstrap_without_rom");
     if (!bootstrap_without_rom(classpath)) {
       return false;
     }

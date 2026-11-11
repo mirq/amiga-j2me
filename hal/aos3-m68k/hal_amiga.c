@@ -4,6 +4,7 @@
 #include <exec/tasks.h>
 #include <devices/timer.h>
 #include <dos/dos.h>
+#include <dos/dosextens.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/timer.h>
@@ -87,6 +88,21 @@ void hal_sleep_ms(uint32_t ms)
 /* malloc is hal/amiga/amiga_malloc.c on AOS3 (libnix's on MorphOS) */
 void *hal_alloc(size_t size) { return malloc(size); }
 void hal_free(void *p) { free(p); }
+
+int hal_path_type(const char *path)
+{
+    int type = 0;
+    BPTR lock = Lock((CONST_STRPTR)path, ACCESS_READ);
+    if (lock) {
+        struct FileInfoBlock *fib = (struct FileInfoBlock *)AllocDosObject(DOS_FIB, NULL);
+        if (fib) {
+            if (Examine(lock, fib)) type = (fib->fib_DirEntryType < 0) ? 1 : 2;
+            FreeDosObject(DOS_FIB, fib);
+        }
+        UnLock(lock);
+    }
+    return type;
+}
 
 void *hal_load_file(const char *path, size_t *out_size)
 {

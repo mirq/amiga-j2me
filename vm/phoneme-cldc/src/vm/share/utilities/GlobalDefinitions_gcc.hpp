@@ -34,6 +34,12 @@
 
 # include <ctype.h>
 # include <string.h>
+#ifdef AMIGA_J2ME
+extern "C" void aj_trace(const char *what);
+#define AJ_TRACE(x) aj_trace(x)
+#else
+#define AJ_TRACE(x)
+#endif
 #if (defined(LINUX) && !defined(SOLARIS)) || defined(AMIGA_J2ME)
 # include <stdint.h>
 #endif

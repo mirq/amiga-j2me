@@ -16,6 +16,7 @@
 #include <exec/types.h>
 #include <exec/memory.h>
 #include <dos/dos.h>
+#include <dos/dosextens.h>
 #include <utility/tagitem.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -30,6 +31,7 @@
 #define AMIGA_EPOCH_OFFSET 252460800LL
 
 static uint64_t s_base;
+static int64_t  s_wall_base_ms;   /* wall clock (ms since 1970) at s_base */
 static volatile int s_wakerQuit;
 static volatile int s_wakerRunning;
 
@@ -74,8 +76,13 @@ static void waker_stop(void)
 int hal_init(int argc, char **argv)
 {
     (void)argc; (void)argv;
+    struct DateStamp d;
     s_base = now_us();
     waker_start();
+    /* GetSysTimePPC is not wall-clock time: take the date once from DOS */
+    DateStamp(&d);
+    s_wall_base_ms = ((int64_t)d.ds_Days * 86400 + (int64_t)d.ds_Minute * 60
+                      + AMIGA_EPOCH_OFFSET) * 1000 + (int64_t)d.ds_Tick * 20;
     return 0;
 }
 
@@ -95,9 +102,7 @@ void hal_write_console(const char *s, int len)
 
 int64_t hal_time_millis(void)
 {
-    struct timeval tv;
-    GetSysTimePPC(&tv);
-    return ((int64_t)tv.tv_secs + AMIGA_EPOCH_OFFSET) * 1000 + tv.tv_micro / 1000;
+    return s_wall_base_ms + (int64_t)((now_us() - s_base) / 1000u);
 }
 
 uint64_t hal_monotonic_micros(void) { return now_us() - s_base; }
@@ -108,6 +113,21 @@ void hal_sleep_ms(uint32_t ms) { if (ms) WaitTime(0, (ULONG)ms * 1000u); }
 /* PPC-side RAM: malloc is hal/amiga/amiga_malloc.c (AllocVecPPC slabs) */
 void *hal_alloc(size_t size) { return malloc(size); }
 void  hal_free(void *p) { free(p); }
+
+int hal_path_type(const char *path)
+{
+    int type = 0;
+    BPTR lock = Lock((CONST_STRPTR)path, ACCESS_READ);
+    if (lock) {
+        struct FileInfoBlock *fib = (struct FileInfoBlock *)AllocDosObject(DOS_FIB, NULL);
+        if (fib) {
+            if (Examine(lock, fib)) type = (fib->fib_DirEntryType < 0) ? 1 : 2;
+            FreeDosObject(DOS_FIB, fib);
+        }
+        UnLock(lock);
+    }
+    return type;
+}
 
 void *hal_load_file(const char *path, size_t *out_size)
 {

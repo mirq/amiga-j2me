@@ -5,9 +5,12 @@
  */
 #include "incls/_precompiled.incl"
 #include "incls/_OsFile_amiga.cpp.incl"
+#include "hal.h"
 
 extern "C" {
 OsFile_Handle OsFile_open(const char *filename, const char *mode) {
+  /* never fopen() a directory: that hangs in the WarpOS C library */
+  if (hal_path_type(filename) == 2) return NULL;
   return fopen(filename, mode);
 }
 int OsFile_close(OsFile_Handle h)  { return fclose(h); }
@@ -26,9 +29,7 @@ long OsFile_length(OsFile_Handle h) {
   return len;
 }
 bool OsFile_exists(const char *name) {
-  FILE *f = fopen(name, "rb");
-  if (f) { fclose(f); return true; }
-  return false;
+  return hal_path_type(name) != 0;
 }
 long OsFile_seek(OsFile_Handle h, long offset, int origin) {
   return fseek(h, offset, origin);

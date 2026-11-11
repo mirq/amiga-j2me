@@ -4521,7 +4521,9 @@ static void Interpret() {
   // Start a new thread or continue in another existing thread
   // after thread termination.
   // NOTE that it also can invoke longjmp, so it must be called after setjmp
+  AJ_TRACE("Interpret: resume_thread");
   resume_thread();
+  AJ_TRACE("Interpret: dispatch loop");
   // process bytecodes in the infinite loop
   if (TraceBytecodes) {
     for (;;) {
@@ -4544,6 +4546,7 @@ void primordial_to_current_thread() {
     // this helps us to avoid additional checks on every bytecode execution.
     // WARNING: no stack objects are allowed in interpreter implementation
     int rv = setjmp(interpreter_env);
+    AJ_TRACE(rv == JMP_ENTER ? "setjmp: enter" : "setjmp: back from interpreter");
     if (rv == JMP_ENTER) {
       GUARANTEE(!inside_interpreter, "Cannot enter interpreter recursively");
       inside_interpreter = true;

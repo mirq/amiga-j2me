@@ -263,7 +263,9 @@ void JVM::run() {
   // Java thread, and the GC will be very confused.
   GUARANTEE(_last_handle == NULL, "No handles");
   GUARANTEE(last_raw_handle == NULL, "No Raw handles");
+  AJ_TRACE("JVM::run");
   primordial_to_current_thread();
+  AJ_TRACE("JVM::run done");
 }
 
   // We put this in solely for the purpose
@@ -308,6 +310,7 @@ inline bool JVM::initialize( void ) {
   _is_started = false;
   _exit_code = 0;
   _startup_phase_count = 0;
+  AJ_TRACE("JVM::initialize");
   Os::initialize();
   EventLogger::initialize();
 
@@ -333,10 +336,13 @@ inline bool JVM::initialize( void ) {
 #endif
 
 #ifndef PRODUCT
+  AJ_TRACE("check oopmaps");
   loopgen_check_oopmaps();
   romgen_check_oopmaps();
+  AJ_TRACE("initialize_non_product");
   initialize_non_product();
 #endif
+  AJ_TRACE("bootstrap");
 
 #if ENABLE_JNI
   jni_initialize();
@@ -426,6 +432,7 @@ int JVM::start() {
     goto done;
   }
 
+  AJ_TRACE("initialized");
   ok = check_misc_options(JVM_SINGLE_ARG_NO_CHECK);
   if (!ok) {
     goto done;
@@ -434,7 +441,9 @@ int JVM::start() {
   if (GenerateROMImage) {
     ok = start_standalone_rom_generator(JVM_SINGLE_ARG_NO_CHECK);
   } else {
+    AJ_TRACE("load_main_class");
     ok = load_main_class(JVM_SINGLE_ARG_NO_CHECK);
+    AJ_TRACE(ok ? "main class loaded" : "main class FAILED");
   }
   if (!ok) {
     if (CURRENT_HAS_PENDING_EXCEPTION) {

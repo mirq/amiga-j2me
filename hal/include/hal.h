@@ -30,7 +30,10 @@ void hal_sleep_ms(uint32_t ms);
 void *hal_alloc(size_t size);
 void  hal_free(void *p);
 
-/* files (read-only blobs; RMS adds write API later) */
+/* files */
+/* 1 = plain file, 2 = directory, 0 = does not exist. Use before fopen():
+ * opening a directory as a file hangs in the WarpOS C library. */
+int hal_path_type(const char *path);
 void *hal_load_file(const char *path, size_t *out_size); /* free with hal_free */
 
 #ifdef __cplusplus

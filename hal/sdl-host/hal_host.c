@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/stat.h>
 
 int hal_init(int argc, char **argv) { (void)argc; (void)argv; return 0; }
 void hal_shutdown(void) {}
@@ -46,6 +47,13 @@ void hal_sleep_ms(uint32_t ms)
 
 void *hal_alloc(size_t size) { return malloc(size); }
 void  hal_free(void *p) { free(p); }
+
+int hal_path_type(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0) return 0;
+    return S_ISDIR(st.st_mode) ? 2 : 1;
+}
 
 void *hal_load_file(const char *path, size_t *out_size)
 {
