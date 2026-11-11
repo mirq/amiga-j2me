@@ -50,6 +50,18 @@ void hal_log(const char *fmt, ...)
     fflush(stdout);
 }
 
+void hal_write_console(const char *s, int len)
+{
+    fwrite(s, 1, (size_t)len, stdout); fflush(stdout);
+}
+
+uint64_t hal_monotonic_micros(void)
+{
+    struct timeval tv;
+    GetSysTime(&tv);  /* not strictly monotonic if the clock is set; good enough */
+    return (uint64_t)tv.tv_secs * 1000000u + tv.tv_micro;
+}
+
 int64_t hal_time_millis(void)
 {
     struct timeval tv;

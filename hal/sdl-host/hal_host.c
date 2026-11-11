@@ -15,6 +15,17 @@ void hal_log(const char *fmt, ...)
     va_list ap; va_start(ap, fmt); vfprintf(stderr, fmt, ap); va_end(ap);
 }
 
+void hal_write_console(const char *s, int len)
+{
+    fwrite(s, 1, (size_t)len, stdout); fflush(stdout);
+}
+
+uint64_t hal_monotonic_micros(void)
+{
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000u + (uint64_t)ts.tv_nsec / 1000u;
+}
+
 int64_t hal_time_millis(void)
 {
     struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts);

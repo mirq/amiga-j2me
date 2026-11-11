@@ -34,7 +34,7 @@
 
 # include <ctype.h>
 # include <string.h>
-#if defined(LINUX) && !defined(SOLARIS)
+#if (defined(LINUX) && !defined(SOLARIS)) || defined(AMIGA_J2ME)
 # include <stdint.h>
 #endif
 # include <stdarg.h>
@@ -43,8 +43,12 @@
 # include <math.h>
 # include <stdio.h>
 # include <time.h>
+#ifndef AMIGA_J2ME
+// amiga-j2me: MorphOS <unistd.h> pulls in Exec headers whose "Tag" type
+// clashes with the VM's enum Tag; the VM does not need POSIX here.
 # include <fcntl.h>
 # include <unistd.h>
+#endif
 #ifdef SOLARIS
 # include <ieeefp.h>
 #endif
@@ -134,6 +138,15 @@ inline unsigned int _rotr(unsigned int x, unsigned int y) {
    return (x >> y) | (x << (32 - y));
 }
 
+#elif defined(AMIGA_J2ME)
+
+// amiga-j2me (m68k / PPC): no debugger trap, just stop hard
+#define BREAKPOINT __builtin_trap()
+#define panic()    __builtin_trap()
+inline unsigned int _rotr(unsigned int x, unsigned int y) {
+   return (x >> y) | (x << (32 - y));
+}
+
 #else
 
 // if everything else fails - we assume x86
@@ -176,7 +189,7 @@ const jlong max_jlong = ~min_jlong;
 //---------------------------------------------------------------------------
 
 // Portability macros
-#ifdef LINUX
+#if defined(LINUX) || defined(AMIGA_J2ME)
 #define __cdecl
 #define _cdecl
 #endif

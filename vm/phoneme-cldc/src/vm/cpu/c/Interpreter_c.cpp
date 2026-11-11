@@ -26,6 +26,13 @@
 
 #include "incls/_precompiled.incl"
 #include "incls/_Interpreter_c.cpp.incl"
+
+#if AMIGA_J2ME
+extern "C" {
+  extern int aj_tick_poll_counter;
+  void aj_tick_poll(void);
+}
+#endif
 #include <stdarg.h>
 #include <setjmp.h>
 
@@ -482,6 +489,13 @@ enum {
     // use g_jpc to prevent compiler from optimizing this memory access
     _protected_page[INTERPRETER_TIMER_TICK_SLOT] = (int)g_jpc;
 #else
+#if AMIGA_J2ME
+    // amiga-j2me: no timer task/signal; poll the clock every N checks
+    // (OS_amiga.cpp) and raise real_time_tick() when an interval elapsed.
+    if (--aj_tick_poll_counter <= 0) {
+      aj_tick_poll();
+    }
+#endif
     if (_rt_timer_ticks > 0) {
       interpreter_call_vm_1((address)&timer_tick, T_VOID, (jint)NATIVE_ARG);
     }

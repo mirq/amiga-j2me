@@ -5,7 +5,8 @@ set -e
 cd "$(dirname "$0")/.."
 ROOT=$PWD
 [ -f tools/ecj-4.6.1.jar ] || tools/fetch-ecj.sh
-mkdir -p build/cldc-linux_c
+OUT=${VMBUILD:-build/cldc-linux_c}
+mkdir -p $OUT
 # Old (2007-2009) C++: no narrowing errors, no modern-GCC UB-based optimizations.
 OLDCXX="-Wno-narrowing -fno-strict-aliasing -fno-delete-null-pointer-checks -fno-lifetime-dse -fpermissive"
 exec make -C vm/phoneme-cldc/build/linux_c \
@@ -16,4 +17,4 @@ exec make -C vm/phoneme-cldc/build/linux_c \
   USER_CFLAGS="$OLDCXX" \
   JDK_DIR=$ROOT/tools/jdk-shim \
   JVMWorkSpace=$ROOT/vm/phoneme-cldc \
-  JVMBuildSpace=$ROOT/build/cldc-linux_c "$@"
+  JVMBuildSpace=$ROOT/$OUT "$@"

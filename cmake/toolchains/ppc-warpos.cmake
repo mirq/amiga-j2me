@@ -11,6 +11,8 @@ set(WOS_SDK_ROOT /home/mirek/Downloads/gg/ppc-warpos CACHE PATH "")
 set(WOS_CPU 604e CACHE STRING "")
 
 set(CMAKE_C_COMPILER ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-gcc)
+set(CMAKE_CXX_COMPILER ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-g++)
+set(CMAKE_CXX_COMPILER_WORKS TRUE)
 set(CMAKE_AR         ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-ar)
 set(CMAKE_RANLIB     ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-ranlib)
 set(WOS_LD           ${WOS_TOOLCHAIN_BIN}/ppc-amigaos-ld)
@@ -20,3 +22,5 @@ set(WOS_ARCH_CFLAGS "-mcpu=${WOS_CPU} -mcall-sysv -mbig-endian -mmultiple -fno-p
 set(WOS_CPPFLAGS "-nostdinc -U__AMIGAOS4__ -U__AMIGAOS4 -UAMIGAOS4 -U__amigaos4__ -U__amigaos4 -Uamigaos4 -U__NEWLIB__ -D__PPC__ -DWARPUP -DNEWLIB -DWOS \
  -isystem ${WOS_SDK_ROOT}/newlib/include -isystem ${WOS_SDK_ROOT}/os-includeppc -isystem ${WOS_SDK_ROOT}/include -isystem ${WOS_SDK_ROOT}/gcc-include")
 set(CMAKE_C_FLAGS_INIT "${WOS_ARCH_CFLAGS} ${WOS_CPPFLAGS}")
+set(CMAKE_CXX_FLAGS_INIT "${WOS_ARCH_CFLAGS} ${WOS_CPPFLAGS} -isystem ${WOS_SDK_ROOT}/newlib/include/c++ -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-use-cxa-atexit")
+set(WOS_LIBGCC_DIR ${WOS_SDK_ROOT}/lib CACHE PATH "")

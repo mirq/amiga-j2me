@@ -1,0 +1,51 @@
+/*
+ * amiga-j2me: Amiga OS port of phoneME CLDC-HI (AOS3 m68k, MorphOS, WarpOS).
+ * All OS access goes through the amiga-j2me HAL (hal/include/hal.h).
+ * Licensed under GPLv2 only, like the rest of phoneME.
+ */
+#include "incls/_precompiled.incl"
+#include "incls/_Main_amiga.cpp.incl"
+#include "hal.h"
+
+void JVMSPI_PrintRaw(const char* s, int length) {
+  hal_write_console(s, length);
+}
+
+void JVMSPI_Exit(int code) {
+  /* Returning lets JVM_Start() return to aj_vm_main(). */
+  (void)code;
+}
+
+jboolean JVMSPI_IsRestrictedPackage(const char* pkg_name, int name_length) {
+  (void)pkg_name; (void)name_length;
+  return KNI_FALSE;
+}
+
+/* Entry point called from the platform main() (src/vm_main.c) after
+ * hal_init(). argv[0] is the program name. */
+extern "C" int aj_vm_main(int argc, char **argv) {
+  int code = 0;
+  JVM_Initialize();
+  argc--; argv++;
+  while (true) {
+    int n = JVM_ParseOneArg(argc, argv);
+    if (n < 0) { JVMSPI_DisplayUsage(NULL); return -1; }
+    if (n == 0) break;
+    argc -= n; argv += n;
+  }
+  if (JVM_GetConfig(JVM_CONFIG_SLAVE_MODE) == KNI_FALSE) {
+    code = JVM_Start(NULL, NULL, argc, argv);
+  } else {
+    JVM_Start(NULL, NULL, argc, argv);
+    for (;;) {
+      jlong timeout = JVM_TimeSlice();
+      if (timeout <= -2) break;
+      int blocked_threads_count;
+      JVMSPI_BlockedThreadInfo *blocked_threads =
+          SNI_GetBlockedThreads(&blocked_threads_count);
+      JVMSPI_CheckEvents(blocked_threads, blocked_threads_count, timeout);
+    }
+    code = JVM_CleanUp();
+  }
+  return code;
+}

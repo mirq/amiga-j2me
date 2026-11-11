@@ -64,6 +64,12 @@ int64_t hal_time_millis(void)
 }
 
 uint32_t hal_ticks_us(void) { return (uint32_t)(read_tb() / tb_per_us); }
+uint64_t hal_monotonic_micros(void) { return read_tb() / tb_per_us; }
+
+void hal_write_console(const char *s, int len)
+{
+    fwrite(s, 1, (size_t)len, stdout); fflush(stdout);
+}
 
 void hal_sleep_ms(uint32_t ms) { ULONG t = (ms + 19) / 20; Delay(t ? t : 1); }
 
