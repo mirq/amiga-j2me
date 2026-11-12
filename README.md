@@ -79,8 +79,12 @@ sound. `VmTest` prints checksums that must be the same on every target.
 
 ## Notes for porters
 
-- bebbo gcc 6.5: the `-fbbb` "s" pass miscompiles (a dropped load, an
-  uninitialised register stored); the toolchain file leaves it out.
+- bebbo gcc 6.5: its own `-fbbb` "s" pass miscompiled the VM (a dropped load,
+  an uninitialised register stored: the first full GC hung). The toolchain
+  file turns all of those passes off (`-fbbb=-`), at no measurable cost.
+- The VM expects the memory for its heap to be zeroed (true of a big `malloc`
+  on Linux, not of AmigaOS memory): `OsMemory_allocate` clears it. Before
+  that, stack map generation failed now and then, differently on each run.
 - WarpOS executables are made on the build host (`tools/elf2warpos`).
 - On WarpOS every 68k call from the PPC is expensive, and in Amiberry a PPC
   task that waits for one can stall without the "waker" task in
