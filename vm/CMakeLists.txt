@@ -99,6 +99,31 @@ if(NOT AJ_TARGET STREQUAL "aos3-m68k")
   target_compile_options(cldcvm PRIVATE -fpermissive -Wno-narrowing -fno-lifetime-dse)
 endif()
 
+# Diagnostic: sources (regex on the path) compiled without optimisation, to
+# bisect optimiser-dependent failures. Example: -DAJ_O0_SOURCES=MergedSrc00[1-3]
+set(AJ_O0_SOURCES "" CACHE STRING "regex of VM sources to compile with -O0")
+if(AJ_O0_SOURCES)
+  foreach(src ${VM_SRC})
+    if(src MATCHES "${AJ_O0_SOURCES}")
+      set_property(SOURCE ${src} APPEND PROPERTY COMPILE_OPTIONS -O0)
+      message(STATUS "-O0: ${src}")
+    endif()
+  endforeach()
+endif()
+# Diagnostic: optimisation level of the VM (to tell compiler bugs from ours)
+set(AJ_VM_OPT "" CACHE STRING "extra optimisation flags for the VM, e.g. -O0")
+if(AJ_VM_OPT)
+  separate_arguments(_vmopt UNIX_COMMAND "${AJ_VM_OPT}")
+  target_compile_options(cldcvm PRIVATE ${_vmopt})
+endif()
+
+# Host only: lay structures out as the 68k compiler does (members aligned to
+# 2 bytes), to reproduce 68k layout problems under a debugger.
+option(AJ_HOST_PACK2 "host: -fpack-struct=2 (68k structure layout)" OFF)
+if(AJ_HOST_PACK2)
+  target_compile_options(cldcvm PRIVATE -fpack-struct=2)
+endif()
+
 # The VM assumes plain char is signed (true on every platform Sun built it
 # for); PowerPC SysV compilers default to unsigned.
 if(AJ_TARGET STREQUAL "wos-ppc" OR AJ_TARGET STREQUAL "morphos-ppc")

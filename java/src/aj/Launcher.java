@@ -12,7 +12,7 @@ import javax.microedition.midlet.MIDlet;
 /**
  * Starts a MIDlet and runs the event thread.
  *
- *   aj.Launcher [-w WIDTH] [-h HEIGHT] [-rms DIR] [MIDletClass]
+ *   aj.Launcher [-v] [-w WIDTH] [-h HEIGHT] [-rms DIR] [MIDletClass]
  *
  * Without a class name, the first MIDlet of the JAR's manifest is started
  * (MIDlet-1: name, icon, class).
@@ -21,6 +21,9 @@ public final class Launcher {
     private static final Hashtable props = new Hashtable();
     private static volatile boolean destroyed;
     private static String storage = "rms";
+    private static boolean verbose;
+
+    private static void log(String s) { if (verbose) System.out.println("[launcher] " + s); }
 
     /** Directory of the record store files (-rms DIR). */
     public static String storageDir() { return storage; }
@@ -67,9 +70,11 @@ public final class Launcher {
             if (args[i].equals("-w") && i + 1 < args.length) w = Integer.parseInt(args[++i]);
             else if (args[i].equals("-h") && i + 1 < args.length) h = Integer.parseInt(args[++i]);
             else if (args[i].equals("-rms") && i + 1 < args.length) storage = args[++i];
+            else if (args[i].equals("-v")) verbose = true;
             else className = args[i];
         }
 
+        log("reading the manifest");
         try {
             InputStream in = Launcher.class.getResourceAsStream("/META-INF/MANIFEST.MF");
             if (in != null) {
@@ -88,11 +93,16 @@ public final class Launcher {
             return;
         }
 
+        log("MIDlet class " + className + ", display " + w + "x" + h);
         Display.open(w, h);
         MIDlet midlet = null;
         try {
-            midlet = (MIDlet) Class.forName(className).newInstance();
+            Class c = Class.forName(className);
+            log("class loaded");
+            midlet = (MIDlet) c.newInstance();
+            log("MIDlet created");
             MIDlet.start(midlet);
+            log("startApp returned");
             Display d = Display.getDisplay(midlet);
             while (!destroyed && !d.quitRequested()) {
                 if (!d.runOnce()) {
