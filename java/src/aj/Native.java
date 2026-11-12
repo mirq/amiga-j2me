@@ -80,11 +80,13 @@ public final class Native {
     public static final int G3D_I_FLAGS = 10, G3D_I_VERTICES = 11, G3D_I_INDICES = 12, G3D_I_POS_TYPE = 13,
         G3D_I_NRM_TYPE = 14, G3D_I_COL_COMPS = 15, G3D_I_DEF_COLOR = 16, G3D_I_TC_TYPE = 17, G3D_I_TC_COMPS = 18,
         G3D_I_TEX_W = 19, G3D_I_TEX_H = 20, G3D_I_TEX_BLEND = 21, G3D_I_TEX_COLOR = 22, G3D_I_WRAP_S = 23,
-        G3D_I_WRAP_T = 24, G3D_I_BLEND = 25, G3D_I_ALPHA_REF = 26, G3D_I_LIGHTS = 27, G3D_I_SIZE = 28;
+        G3D_I_WRAP_T = 24, G3D_I_BLEND = 25, G3D_I_ALPHA_REF = 26, G3D_I_LIGHTS = 27, G3D_I_FOG_MODE = 28, G3D_I_FOG_COLOR = 29,
+        G3D_I_SIZE = 30;
     // f: modelview 0..15, projection 16..31 (row-major), position scale 32, bias 33..35,
-    //    texcoord scale 36, bias 37..39, texture transform 40..55, material 56..69, lights from 72 (12 each)
+    //    texcoord scale 36, bias 37..39, texture transform 40..55, material 56..69,
+    //    fog near or density 70, fog far 71, lights from 72 (12 each)
     public static final int G3D_F_MV = 0, G3D_F_PROJ = 16, G3D_F_POS_SCALE = 32, G3D_F_POS_BIAS = 33,
-        G3D_F_TC_SCALE = 36, G3D_F_TC_BIAS = 37, G3D_F_TEX_XF = 40, G3D_F_MATERIAL = 56, G3D_F_LIGHTS = 72,
+        G3D_F_TC_SCALE = 36, G3D_F_TC_BIAS = 37, G3D_F_TEX_XF = 40, G3D_F_MATERIAL = 56, G3D_F_FOG = 70, G3D_F_LIGHTS = 72,
         G3D_LIGHT_FLOATS = 12, G3D_MAX_LIGHTS = 8, G3D_F_SIZE = 72 + 12 * 8;
     /** flags: 1 = clear colour, 2 = clear depth */
     public static native void g3dClear(short[] dst, int[] i, int argb, int flags);

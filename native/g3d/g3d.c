@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { float x, y, z, w; float r, g, b, a; float u, v; } Vtx;
+typedef struct { float x, y, z, w; float r, g, b, a; float u, v; float f; /* fog: 1 = clear, 0 = all fog */ } Vtx;
 
 static uint16_t *s_px;
 static int s_w, s_h;
@@ -123,10 +123,29 @@ static void transform_vertices(const G3dDraw *d)
                     if (ndl < 0.0f) ndl = (d->flags & G3D_TWO_SIDED) ? -ndl : 0.0f;
                     ndl *= att;
                     r += dr * L[1] * ndl; g += dg * L[2] * ndl; b += db * L[3] * ndl;
+                    if (ndl > 0.0f && mat[13] > 0.0f && (mat[10] > 0.0f || mat[11] > 0.0f || mat[12] > 0.0f)) {
+                        /* Blinn highlight, viewer at infinity along +Z of eye space */
+                        float hx = lx, hy = ly, hz = lz + 1.0f;
+                        float hl = (float)sqrt(hx * hx + hy * hy + hz * hz);
+                        if (hl > 0.0f) {
+                            float ndh = (tx * hx + ty * hy + tz * hz) / hl;
+                            if (ndh > 0.0f) {
+                                float sp = (float)pow(ndh, mat[13]) * att;
+                                r += mat[10] * L[1] * sp; g += mat[11] * L[2] * sp; b += mat[12] * L[3] * sp;
+                            }
+                        }
+                    }
                 }
                 o->r = clamp01(r); o->g = clamp01(g); o->b = clamp01(b); o->a = da;
             }
         }
+
+        if (d->fog_mode == 1) {
+            float span = d->fog_b - d->fog_a;
+            o->f = span != 0.0f ? clamp01((d->fog_b + ez) / span) : 1.0f;      /* distance = -ez */
+        } else if (d->fog_mode == 2) {
+            o->f = clamp01((float)exp(d->fog_a * ez));
+        } else o->f = 1.0f;
 
         if (d->tc) {
             float u = component(d->tc, d->tc_type, i * d->tc_comps) * d->tc_scale + d->tc_bias[0];
@@ -173,6 +192,7 @@ static int clip_poly(Vtx *in, int n, Vtx *tmp)
                 o->r = a->r + (b->r - a->r) * t; o->g = a->g + (b->g - a->g) * t;
                 o->b = a->b + (b->b - a->b) * t; o->a = a->a + (b->a - a->a) * t;
                 o->u = a->u + (b->u - a->u) * t; o->v = a->v + (b->v - a->v) * t;
+                o->f = a->f + (b->f - a->f) * t;
             }
         }
         n = m;
@@ -185,11 +205,11 @@ static int clip_poly(Vtx *in, int n, Vtx *tmp)
 
 /* ---- rasteriser ---- */
 
-typedef struct { float x, y, z, iw, r, g, b, a, uw, vw; } SV;   /* screen vertex; uw = u/w, vw = v/w, iw = 1/w */
+typedef struct { float x, y, z, iw, r, g, b, a, uw, vw, f; } SV;   /* screen vertex; uw = u/w, vw = v/w, iw = 1/w */
 
 static const G3dDraw *s_d;
 
-static inline void shade_pixel(uint16_t *dp, uint16_t *zp, uint32_t z, int r, int g, int b, int a, int tu, int tv)
+static inline void shade_pixel(uint16_t *dp, uint16_t *zp, uint32_t z, int r, int g, int b, int a, int tu, int tv, int fog)
 {
     const G3dDraw *d = s_d;
     if (d->flags & G3D_DEPTH_TEST) { if ((z >> 16) > *zp) return; }
@@ -216,6 +236,10 @@ static inline void shade_pixel(uint16_t *dp, uint16_t *zp, uint32_t z, int r, in
         }
     }
     if (a < d->alpha_threshold) return;
+    if (d->fog_mode && fog < 255) {
+        int fr = (d->fog_color >> 16) & 255, fg = (d->fog_color >> 8) & 255, fb = d->fog_color & 255;
+        r = fr + (((r - fr) * fog) >> 8); g = fg + (((g - fg) * fog) >> 8); b = fb + (((b - fb) * fog) >> 8);
+    }
     if (!(d->flags & G3D_NO_COLOR)) {
         if (d->blend != G3D_BLEND_REPLACE) {
             uint16_t o = *dp;
@@ -242,7 +266,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
     const SV *t;
     float area, inv;
     /* gradients of every interpolated quantity over the screen */
-    float dzx, dzy, dix, diy, drx, dry, dgx, dgy, dbx, dby, dax, day, dux, duy, dvx, dvy;
+    float dzx, dzy, dix, diy, drx, dry, dgx, dgy, dbx, dby, dax, day, dux, duy, dvx, dvy, dfx, dfy;
     int y, y_start, y_end, x0b, y0b, x1b, y1b;
     int textured = s_d->tex != NULL, persp = textured && (s_d->flags & G3D_PERSPECTIVE);
 
@@ -258,7 +282,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
     gy = ((c->f - a->f) * (b->x - a->x) - (b->f - a->f) * (c->x - a->x)) * inv
     GRAD(z, dzx, dzy); GRAD(iw, dix, diy);
     GRAD(r, drx, dry); GRAD(g, dgx, dgy); GRAD(b, dbx, dby); GRAD(a, dax, day);
-    GRAD(uw, dux, duy); GRAD(vw, dvx, dvy);
+    GRAD(uw, dux, duy); GRAD(vw, dvx, dvy); GRAD(f, dfx, dfy);
 #undef GRAD
 
     bounds(&x0b, &y0b, &x1b, &y1b);
@@ -268,7 +292,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
 
     for (y = y_start; y < y_end; y++) {
         float py = y + 0.5f, xl, xr, px, dy, dx0;
-        float z, iw, r, g, bl, al, uw, vw;
+        float z, iw, r, g, bl, al, uw, vw, fg;
         int xs, xe, n;
         uint16_t *dp, *zp;
         /* long edge a-c, short edges a-b / b-c */
@@ -286,6 +310,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
         r = a->r + drx * dx0 + dry * dy;  g = a->g + dgx * dx0 + dgy * dy;
         bl = a->b + dbx * dx0 + dby * dy; al = a->a + dax * dx0 + day * dy;
         uw = a->uw + dux * dx0 + duy * dy; vw = a->vw + dvx * dx0 + dvy * dy;
+        fg = a->f + dfx * dx0 + dfy * dy;
         dp = s_px + (size_t)y * s_w + xs; zp = s_z + (size_t)y * s_w + xs;
         {
             /* fixed point per pixel: z 16.16 (unsigned), colours and texels 16.16 */
@@ -294,6 +319,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
             int32_t rf = (int32_t)(r * 65536.0f), gf = (int32_t)(g * 65536.0f), bf = (int32_t)(bl * 65536.0f), af = (int32_t)(al * 65536.0f);
             int32_t drf = (int32_t)(drx * 65536.0f), dgf = (int32_t)(dgx * 65536.0f), dbf = (int32_t)(dbx * 65536.0f), daf = (int32_t)(dax * 65536.0f);
             int32_t uf = 0, vf = 0, duf = 0, dvf = 0;
+            int32_t ff = (int32_t)(fg * 255.0f * 65536.0f), dff = (int32_t)(dfx * 255.0f * 65536.0f);
             int left = n;
             if (textured && !persp) {
                 /* affine: u/w and v/w carry w = 1 (set by the caller) */
@@ -316,9 +342,13 @@ static void tri(const SV *a, const SV *b, const SV *c)
                     if (gi < 0) gi = 0; else if (gi > 255) gi = 255;
                     if (bi < 0) bi = 0; else if (bi > 255) bi = 255;
                     if (ai < 0) ai = 0; else if (ai > 255) ai = 255;
-                    shade_pixel(dp, zp, zf, ri, gi, bi, ai, uf >> 16, vf >> 16);
+                    {
+                        int fi = ff >> 16;
+                        if (fi < 0) fi = 0; else if (fi > 255) fi = 255;
+                        shade_pixel(dp, zp, zf, ri, gi, bi, ai, uf >> 16, vf >> 16, fi);
+                    }
                     dp++; zp++;
-                    zf += (uint32_t)dzf; rf += drf; gf += dgf; bf += dbf; af += daf; uf += duf; vf += dvf;
+                    zf += (uint32_t)dzf; rf += drf; gf += dgf; bf += dbf; af += daf; uf += duf; vf += dvf; ff += dff;
                 }
                 left -= span;
             }
@@ -358,6 +388,7 @@ void g3d_draw(const G3dDraw *d)
             sv[k].x = s_vx + (poly[k].x * iw * 0.5f + 0.5f) * s_vw;
             sv[k].y = s_vy + (0.5f - poly[k].y * iw * 0.5f) * s_vh;
             sv[k].z = (poly[k].z * iw * 0.5f + 0.5f) * 65535.0f;
+            sv[k].f = poly[k].f;
             sv[k].r = poly[k].r * 255.0f; sv[k].g = poly[k].g * 255.0f;
             sv[k].b = poly[k].b * 255.0f; sv[k].a = poly[k].a * 255.0f;
             if (d->flags & G3D_PERSPECTIVE) { sv[k].iw = iw; sv[k].uw = poly[k].u * iw; sv[k].vw = poly[k].v * iw; }

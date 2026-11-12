@@ -13,7 +13,8 @@ import javax.microedition.lcdui.Graphics;
 /**
  * The renderer. The scene graph, animation and state live in Java; transform,
  * lighting, clipping and rasterising of each submesh are one native call.
- * Not drawn: fog, specular highlights, the second texture unit, depth offset.
+ * The second texture unit is a second pass. Not applied: depth offset, spot
+ * light cones, texture filtering (always nearest).
  */
 public class Graphics3D {
     public static final int ANTIALIAS = 2, DITHER = 4, TRUE_COLOR = 8, OVERWRITE = 16;
@@ -117,7 +118,7 @@ public class Graphics3D {
         h.put("maxTextureDimension", new Integer(256));
         h.put("maxSpriteCropDimension", new Integer(256));
         h.put("maxTransformsPerVertex", new Integer(2));
-        h.put("numTextureUnits", new Integer(1));
+        h.put("numTextureUnits", new Integer(2));
         return h;
     }
 
@@ -247,6 +248,7 @@ public class Graphics3D {
         I[Native.G3D_I_TEX_W] = img.width; I[Native.G3D_I_TEX_H] = img.height;
         I[Native.G3D_I_TEX_BLEND] = 0; I[Native.G3D_I_WRAP_S] = repeat ? 1 : 0; I[Native.G3D_I_WRAP_T] = repeat ? 1 : 0;
         I[Native.G3D_I_BLEND] = blend; I[Native.G3D_I_ALPHA_REF] = alphaRef; I[Native.G3D_I_LIGHTS] = 0;
+        I[Native.G3D_I_FOG_MODE] = 0;
         Native.g3dDraw(pixels, I, F, QUAD_POS, null, null, quadTc, QUAD_IDX, img.pix, img.alpha);
     }
 
@@ -305,6 +307,19 @@ public class Graphics3D {
             F[at + 3] = ((mat.diffuse >> 16) & 255) / 255f; F[at + 4] = ((mat.diffuse >> 8) & 255) / 255f; F[at + 5] = (mat.diffuse & 255) / 255f;
             F[at + 6] = (mat.diffuse >>> 24) / 255f * alphaFactor;
             F[at + 7] = ((mat.emissive >> 16) & 255) / 255f; F[at + 8] = ((mat.emissive >> 8) & 255) / 255f; F[at + 9] = (mat.emissive & 255) / 255f;
+            F[at + 10] = ((mat.specular >> 16) & 255) / 255f; F[at + 11] = ((mat.specular >> 8) & 255) / 255f; F[at + 12] = (mat.specular & 255) / 255f;
+            F[at + 13] = mat.shininess;
+        }
+        Fog fog = ap.fog;
+        if (fog == null) {
+            I[Native.G3D_I_FOG_MODE] = 0;
+        } else {
+            I[Native.G3D_I_FOG_COLOR] = fog.color;
+            if (fog.mode == Fog.LINEAR) {
+                I[Native.G3D_I_FOG_MODE] = 1; F[Native.G3D_F_FOG] = fog.near; F[Native.G3D_F_FOG + 1] = fog.far;
+            } else {
+                I[Native.G3D_I_FOG_MODE] = 2; F[Native.G3D_F_FOG] = fog.density;
+            }
         }
         if (alphaFactor < 1f) color = (color & 0xFFFFFF) | ((int) ((color >>> 24) * alphaFactor) << 24);
 
@@ -356,6 +371,41 @@ public class Graphics3D {
         Native.g3dDraw(pixels, I, F, pos.data(), vb.normals == null ? null : vb.normals.data(),
                        vb.colors == null ? null : vb.colors.bytes, tc == null ? null : tc.data(),
                        ib.triangles, texPix, texAlpha);
+
+        // The second texture unit is a second pass over the same triangles,
+        // blended onto the first by its texture function (a light map is
+        // MODULATE). The depth test passes again on equal depth.
+        Texture2D tex2 = ap.textures[1];
+        VertexArray tc2 = vb.texCoords[1];
+        if (tex2 != null && tc2 != null && tex != null && tc != null) {
+            Image2D img = tex2.image;
+            I[Native.G3D_I_TEX_W] = img.width; I[Native.G3D_I_TEX_H] = img.height;
+            I[Native.G3D_I_TEX_BLEND] = 0;      // the texel itself; the blend below combines it
+            I[Native.G3D_I_WRAP_S] = tex2.wrapS == Texture2D.WRAP_REPEAT ? 1 : 0;
+            I[Native.G3D_I_WRAP_T] = tex2.wrapT == Texture2D.WRAP_REPEAT ? 1 : 0;
+            I[Native.G3D_I_TC_TYPE] = tc2.size; I[Native.G3D_I_TC_COMPS] = tc2.comps;
+            F[Native.G3D_F_TC_SCALE] = vb.texScale[1];
+            System.arraycopy(vb.texBias[1], 0, F, Native.G3D_F_TC_BIAS, 3);
+            Transform tt = new Transform();
+            tex2.getCompositeTransform(tt);
+            System.arraycopy(tt.m, 0, F, Native.G3D_F_TEX_XF, 16);
+            int pass;
+            switch (tex2.blending) {
+            case Texture2D.FUNC_MODULATE: pass = 3; break;      // MODULATE
+            case Texture2D.FUNC_ADD: pass = 2; break;           // ALPHA_ADD with opaque texels
+            case Texture2D.FUNC_DECAL: pass = 1; break;         // by the texel's alpha
+            case Texture2D.FUNC_BLEND: pass = 3; break;
+            default: pass = 0; break;
+            }
+            I[Native.G3D_I_BLEND] = pass;
+            I[Native.G3D_I_ALPHA_REF] = 0;
+            I[Native.G3D_I_FOG_MODE] = 0;
+            // no lighting, no depth writes, white vertices
+            I[Native.G3D_I_FLAGS] = (flags & ~(0x20 | 0x10 | 0x400)) | 0x200;
+            I[Native.G3D_I_COL_COMPS] = 0;
+            I[Native.G3D_I_DEF_COLOR] = 0xFFFFFFFF;
+            Native.g3dDraw(pixels, I, F, pos.data(), null, null, tc2.data(), ib.triangles, img.pix, img.alpha);
+        }
     }
 
     public void render(Node node, Transform transform) {

@@ -50,6 +50,9 @@ typedef struct G3dDraw {
     int blend, alpha_threshold;
     const float *lights; int nlights;
     const float *material;          /* ambient rgb, diffuse rgba, emissive rgb, specular rgb, shininess (14 floats) */
+    int fog_mode;                   /* 0 none, 1 linear (fog_a = near, fog_b = far), 2 exponential (fog_a = density) */
+    uint32_t fog_color;
+    float fog_a, fog_b;
 } G3dDraw;
 
 /* Target surface and scissor (clip rectangle); allocates the depth buffer. 0 = ok. */

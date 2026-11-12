@@ -63,6 +63,7 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_g3dDraw(void)
         d.blend = i[25]; d.alpha_threshold = i[26];
         d.lights = f + 72; d.nlights = i[27] > G3D_MAX_LIGHTS ? G3D_MAX_LIGHTS : i[27];
         d.material = f + 56;
+        d.fog_mode = i[28]; d.fog_color = (uint32_t)i[29]; d.fog_a = f[70]; d.fog_b = f[71];
         if (!d.tc || d.tw <= 0 || d.th <= 0) d.tex = NULL;
         g3d_draw(&d);
     }
