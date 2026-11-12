@@ -45,8 +45,12 @@ screen mode; AHI for sound (optional).
   implementation on the same rasteriser: MBAC figures (versions 2-5) with
   bones, patterns and several textures, MTRA actions, BMP textures with a
   colour key, lighting and toon shading, blending, primitives and command
-  lists. Tested with models made by `tools/make-test-mbac.py` only, not yet
-  with a commercial game; sphere-map reflections are left out.
+  lists, sphere-map reflections. The same engine serves the older API of
+  Motorola, Vodafone and JBlend phones (`com.motorola.graphics.j3d`,
+  `com.vodafone.v10.graphics.j3d`, `com.jblend.graphics.j3d`) and Motorola
+  iDEN (`com.motorola.iden.micro3d`; its render-to-texture is not done).
+  Tested with models made by `tools/make-test-mbac.py` only, not yet with a
+  commercial game.
 - **Vendor APIs**: Siemens (`com.siemens.mp.game`, `color_game`, `io.File`,
   `ui`/`lcdui` Image), Samsung (`com.samsung.util`), Motorola
   (`multimedia`, `funlight`, `midi`). Vibration and lights do nothing.
@@ -55,8 +59,7 @@ screen mode; AHI for sound (optional).
 - **Platform layer** (`hal/amiga`, from the author's civctp2 port): RTG screen,
   input, timers, AHI, a fast `malloc`.
 
-Not there yet: https, the Motorola `com.motorola.graphics.j3d` and iDEN 3D
-packages, Mascot Capsule sphere maps.
+Not there yet: https.
 
 ## Settings per game
 

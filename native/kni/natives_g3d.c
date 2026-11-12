@@ -71,22 +71,24 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_g3dDraw(void)
     KNI_ReturnVoid();
 }
 
-/* g3dFigure(dst, i, pos, nrm, params, tris, opts, tex, texAlpha)
-   opts: vertices, triangles, pattern mask, face, blending on, pass, reuse, texture w, h */
+/* g3dFigure(dst, i, pos, nrm, params, tris, opts, tex, texAlpha, sphere)
+   opts: vertices, triangles, pattern mask, face, blending on, pass, reuse, texture w, h, sphere map w, h */
 KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_g3dFigure(void)
 {
     G3dFigure f;
     const jint *i, *o;
-    KNI_StartHandles(9);
+    KNI_StartHandles(10);
+    KNI_DeclareHandle(hsph);
     KNI_DeclareHandle(hdst); KNI_DeclareHandle(hi); KNI_DeclareHandle(hpos); KNI_DeclareHandle(hnrm);
     KNI_DeclareHandle(hpar); KNI_DeclareHandle(htris); KNI_DeclareHandle(hopts); KNI_DeclareHandle(htex);
     KNI_DeclareHandle(hta);
     KNI_GetParameterAsObject(1, hdst); KNI_GetParameterAsObject(2, hi); KNI_GetParameterAsObject(3, hpos);
     KNI_GetParameterAsObject(4, hnrm); KNI_GetParameterAsObject(5, hpar); KNI_GetParameterAsObject(6, htris);
     KNI_GetParameterAsObject(7, hopts); KNI_GetParameterAsObject(8, htex); KNI_GetParameterAsObject(9, hta);
+    KNI_GetParameterAsObject(10, hsph);
     i = (const jint *)SNI_GetRawArrayPointer((jarray)hi);
     if (bind_target(hdst, i) && !KNI_IsNullHandle(hpos) && !KNI_IsNullHandle(htris) && !KNI_IsNullHandle(hpar)
-        && !KNI_IsNullHandle(hopts) && KNI_GetArrayLength((jarray)hopts) >= 9
+        && !KNI_IsNullHandle(hopts) && KNI_GetArrayLength((jarray)hopts) >= 11
         && KNI_GetArrayLength((jarray)hpar) >= G3D_FIG_PARAMS) {
         o = (const jint *)SNI_GetRawArrayPointer((jarray)hopts);
         memset(&f, 0, sizeof(f));
@@ -96,6 +98,8 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_g3dFigure(void)
         f.nverts = o[0]; f.ntris = o[1]; f.pattern_mask = o[2]; f.face = o[3];
         f.blend_enabled = o[4]; f.pass = o[5]; f.reuse = o[6]; f.tw = o[7]; f.th = o[8];
         f.tex = (const uint16_t *)RAW(htex); f.tex_alpha = (const uint8_t *)RAW(hta);
+        f.sphere = (const uint16_t *)RAW(hsph); f.sw = o[9]; f.sh = o[10];
+        if (f.sphere && (f.sw <= 0 || f.sh <= 0 || f.sw * f.sh > KNI_GetArrayLength((jarray)hsph))) f.sphere = NULL;
         if (f.nverts * 3 <= KNI_GetArrayLength((jarray)hpos)
             && (!f.nrm || f.nverts * 3 <= KNI_GetArrayLength((jarray)hnrm))
             && f.ntris * G3D_FIG_INTS <= KNI_GetArrayLength((jarray)htris)

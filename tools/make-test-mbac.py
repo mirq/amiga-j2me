@@ -52,7 +52,7 @@ hb = len(body_v)
 c3 = [(hb, hb+1, hb+2, 0, 0), (hb+1, hb+3, hb+2, 1, 0), (hb+3, hb+4, hb+2, 0, 0), (hb+4, hb, hb+2, 1, 0),
       (0, 1, 2, 2, 1)]
 colors = [(255, 200, 0), (220, 60, 30), (255, 255, 255)]
-LIT, TWO_SIDED, KEY = 0x20, 0x10, 0x01
+LIT, TWO_SIDED, KEY, SPHERE = 0x20, 0x10, 0x01, 0x40
 
 def bones_bytes():
     def bone(count, parent, tx, ty, tz):
@@ -87,7 +87,7 @@ def mbac_v5():
         b.put((LIT | TWO_SIDED) >> 1, 7); b.put(a, 8); b.put(bb, 8); b.put(c, 8); b.put(col, 2)
     for v in (7, 8, 7, 0): b.put(v, 8)                  # textured: material, index, uv bits
     for f, q in enumerate(tq):
-        b.put(LIT | KEY if f < 6 else LIT, 7)
+        b.put(LIT | KEY if f < 6 else LIT | SPHERE, 7)
         for i in q: b.put(i, 8)
         for u, v in uvs(f): b.put(u, 7); b.put(v, 7)
     b.align()
@@ -135,6 +135,22 @@ def bmp():
     info = struct.pack('<IiiHHIIiiII', 40, w, h, 1, 8, 0, len(data), 2835, 2835, 256, 0)
     return head + info + b''.join(struct.pack('<4B', b, g, r, 0) for r, g, b in pal) + data
 
-for name, data in (('mc.mbac', mbac_v5()), ('mc_old.mbac', mbac_v3()), ('mc.mtra', mtra()), ('mc.bmp', bmp())):
+def sphere_bmp():
+    """a soft highlight, upper left: what the arm 'reflects'"""
+    w = h = 64
+    rows = []
+    for y in range(h):
+        row = bytearray()
+        for x in range(w):
+            d = ((x - 22) ** 2 + (y - 22) ** 2) ** 0.5
+            row.append(max(0, min(255, int(230 - d * 9))))
+        rows.append(bytes(row))
+    data = b''.join(reversed(rows))
+    head = struct.pack('<2sIHHI', b'BM', 14 + 40 + 1024 + len(data), 0, 0, 14 + 40 + 1024)
+    info = struct.pack('<IiiHHIIiiII', 40, w, h, 1, 8, 0, len(data), 2835, 2835, 256, 0)
+    return head + info + b''.join(struct.pack('<4B', i, i, i, 0) for i in range(256)) + data
+
+for name, data in (('mc.mbac', mbac_v5()), ('mc_old.mbac', mbac_v3()), ('mc.mtra', mtra()), ('mc.bmp', bmp()),
+                   ('mc_sphere.bmp', sphere_bmp())):
     with open(os.path.join(out, name), 'wb') as f: f.write(data)
     print(name, len(data))

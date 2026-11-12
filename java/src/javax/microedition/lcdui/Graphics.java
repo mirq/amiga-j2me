@@ -6,7 +6,8 @@ package javax.microedition.lcdui;
 
 import aj.Native;
 
-public class Graphics {
+public class Graphics implements com.motorola.graphics.j3d.Graphics3D, com.vodafone.v10.graphics.j3d.Graphics3D,
+                                 com.jblend.graphics.j3d.Graphics3D {
     public static final int HCENTER = 1, VCENTER = 2, LEFT = 4, RIGHT = 8, TOP = 16, BOTTOM = 32, BASELINE = 64;
     public static final int SOLID = 0, DOTTED = 1;
 
@@ -163,6 +164,23 @@ public class Graphics {
     }
 
     short[] targetPixels() { return pix; }
+
+    // ---- Mascot Capsule v2 style 3D (Motorola, Vodafone, JBlend): the Graphics is the renderer ----
+
+    public void drawFigure(com.motorola.graphics.j3d.Figure figure, int x, int y,
+                           com.motorola.graphics.j3d.FigureLayout layout, com.motorola.graphics.j3d.Effect3D effect) {
+        com.motorola.graphics.j3d.RenderProxy.drawFigure(this, figure, x, y, layout, effect);
+    }
+
+    public void drawFigure(com.vodafone.v10.graphics.j3d.Figure figure, int x, int y,
+                           com.vodafone.v10.graphics.j3d.FigureLayout layout, com.vodafone.v10.graphics.j3d.Effect3D effect) {
+        com.vodafone.v10.graphics.j3d.RenderProxy.drawFigure(this, figure, x, y, layout, effect);
+    }
+
+    public void drawFigure(com.jblend.graphics.j3d.Figure figure, int x, int y,
+                           com.jblend.graphics.j3d.FigureLayout layout, com.jblend.graphics.j3d.Effect3D effect) {
+        com.jblend.graphics.j3d.RenderProxy.drawFigure(this, figure, x, y, layout, effect);
+    }
 
     void targetInfo(int[] out) {
         out[0] = sw; out[1] = sh; out[2] = cx; out[3] = cy; out[4] = cw; out[5] = ch; out[6] = tx; out[7] = ty;

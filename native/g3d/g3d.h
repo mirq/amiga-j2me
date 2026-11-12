@@ -64,6 +64,7 @@ typedef struct G3dDraw {
 #define G3D_FIG_BLEND_MASK  0x06    /* 2 half, 4 add, 6 subtract */
 #define G3D_FIG_TWO_SIDED   0x10
 #define G3D_FIG_LIGHTING    0x20
+#define G3D_FIG_SPHERE      0x40    /* add the sphere map, looked up by the eye space normal */
 /* params: view 3x4 row-major (0..11), 12 = 1 for perspective, 13/14 = pixels per
  * unit (at depth 1 when perspective), 15/16 = centre in the viewport, 17/18 = near/far,
  * 19 = ambient (< 0: unlit), 20 = directional intensity, 21..23 = direction to
@@ -75,6 +76,7 @@ typedef struct G3dFigure {
     const int32_t *tris; int ntris;
     int pattern_mask, face, blend_enabled, pass, reuse;     /* pass 0: opaque, 1: blended */
     const uint16_t *tex; const uint8_t *tex_alpha; int tw, th;
+    const uint16_t *sphere; int sw, sh;                     /* sphere map, or NULL */
 } G3dFigure;
 void g3d_figure(const G3dFigure *f);
 

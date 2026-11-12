@@ -96,10 +96,11 @@ public final class Native {
     public static final int G3D_FIG_COLORKEY = 1, G3D_FIG_TWO_SIDED = 0x10, G3D_FIG_LIGHTING = 0x20;
     /**
      * A Mascot Capsule figure (see g3d.h). tris: 9 ints each; opts: vertices, triangles,
-     * pattern mask, face, blending on, pass, reuse the last transform, texture w, h.
+     * pattern mask, face, blending on, pass, reuse the last transform, texture w, h,
+     * sphere map w, h (polygons flagged 0x40 get the sphere map added, looked up by their normals).
      */
     public static native void g3dFigure(short[] dst, int[] i, float[] pos, float[] nrm, float[] params,
-                                        int[] tris, int[] opts, short[] tex, byte[] texAlpha);
+                                        int[] tris, int[] opts, short[] tex, byte[] texAlpha, short[] sphere);
     /** zlib data to outLen bytes; null when it is damaged. */
     public static native byte[] inflate(byte[] src, int off, int len, int outLen);
 

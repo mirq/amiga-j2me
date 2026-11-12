@@ -457,7 +457,7 @@ void g3d_draw(const G3dDraw *d)
 
 /* ---- Mascot Capsule figures ---- */
 
-static float *s_fig_light;
+static float *s_fig_light, *s_fig_nxy;      /* per vertex: light, eye space normal x and y (unit length) */
 static int s_fig_cap;
 
 void g3d_figure(const G3dFigure *f)
@@ -467,6 +467,7 @@ void g3d_figure(const G3dFigure *f)
     Vtx poly[12];
     int i, t, persp = p[12] != 0.0f;
     int lit_ok = f->nrm && p[19] >= 0.0f;
+    int sphere_ok = f->nrm && f->sphere && f->sw > 0 && f->sh > 0;
     if (!s_px || !s_z || f->nverts <= 0 || s_vw <= 0 || s_vh <= 0) return;
     if (f->nverts > s_vcap) {
         free(s_vtx);
@@ -475,10 +476,11 @@ void g3d_figure(const G3dFigure *f)
         if (!s_vtx) return;
     }
     if (f->nverts > s_fig_cap) {
-        free(s_fig_light);
+        free(s_fig_light); free(s_fig_nxy);
         s_fig_light = (float *)malloc(sizeof(float) * (size_t)f->nverts);
-        s_fig_cap = s_fig_light ? f->nverts : 0;
-        if (!s_fig_light) return;
+        s_fig_nxy = (float *)malloc(sizeof(float) * 2 * (size_t)f->nverts);
+        s_fig_cap = (s_fig_light && s_fig_nxy) ? f->nverts : 0;
+        if (!s_fig_cap) { free(s_fig_light); free(s_fig_nxy); s_fig_light = s_fig_nxy = NULL; return; }
     }
     if (!f->reuse) {
         float iw = 1.0f / (float)s_vw, ih = 1.0f / (float)s_vh;
@@ -500,12 +502,14 @@ void g3d_figure(const G3dFigure *f)
                 o->z = ez * (1.0f / 65536.0f); o->w = 1.0f;
             }
             o->f = 1.0f;
-            if (lit_ok) {
+            if (lit_ok || sphere_ok) {
                 float nx = f->nrm[i * 3], ny = f->nrm[i * 3 + 1], nz = f->nrm[i * 3 + 2];
                 float tx = p[0] * nx + p[1] * ny + p[2] * nz;
                 float ty = p[4] * nx + p[5] * ny + p[6] * nz;
                 float tz = p[8] * nx + p[9] * ny + p[10] * nz;
                 float len = (float)sqrt(tx * tx + ty * ty + tz * tz), l = 0.0f;
+                s_fig_nxy[i * 2] = len > 0.0f ? tx / len : 0.0f;
+                s_fig_nxy[i * 2 + 1] = len > 0.0f ? ty / len : 0.0f;
                 if (len > 0.0f) l = (tx * p[21] + ty * p[22] + tz * p[23]) / len;
                 if (l < 0.0f) l = 0.0f;
                 l = p[19] + p[20] * l;
@@ -549,6 +553,24 @@ void g3d_figure(const G3dFigure *f)
         d.blend = blend == 2 ? G3D_BLEND_ALPHA : (blend == 4 ? G3D_BLEND_ALPHA_ADD : (blend == 6 ? G3D_BLEND_SUB : G3D_BLEND_REPLACE));
         d.flags = G3D_DEPTH_TEST | (blend ? 0 : G3D_DEPTH_WRITE) | ((textured && persp) ? G3D_PERSPECTIVE : 0)
                 | ((flags & G3D_FIG_TWO_SIDED) ? 0 : (G3D_CULL_BACK | G3D_WINDING_CW));
+        if (sphere_ok && (flags & G3D_FIG_SPHERE) && f->pass == 0) {
+            /* the reflection: the same triangle again, the sphere map added on top */
+            Vtx again[12];
+            for (k = 0; k < 3; k++) again[k] = poly[k];
+            draw_poly(&d, poly);
+            for (k = 0; k < 3; k++) {
+                again[k].r = again[k].g = again[k].b = again[k].a = 1.0f;
+                again[k].u = (s_fig_nxy[r[k] * 2] * 0.5f + 0.5f) * (float)(f->sw - 1);
+                again[k].v = (s_fig_nxy[r[k] * 2 + 1] * 0.5f + 0.5f) * (float)(f->sh - 1);
+            }
+            d.tex = f->sphere; d.tex_alpha = NULL; d.alpha_threshold = 0;
+            d.tw = f->sw; d.th = f->sh;
+            d.blend = G3D_BLEND_ALPHA_ADD;
+            d.flags = (d.flags & ~(G3D_DEPTH_WRITE | G3D_PERSPECTIVE)) | G3D_DEPTH_TEST;
+            draw_poly(&d, again);
+            d.tw = f->tw; d.th = f->th;
+            continue;
+        }
         draw_poly(&d, poly);
     }
 }

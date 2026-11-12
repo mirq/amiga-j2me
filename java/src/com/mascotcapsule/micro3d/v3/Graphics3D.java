@@ -37,7 +37,8 @@ public class Graphics3D {
 
     private Graphics target;
     private short[] pixels;
-    private final int[] I = new int[10], opts = new int[9];
+    private final int[] I = new int[10], opts = new int[11];
+    private Texture sphere;
     private final float[] P = new float[27];
     private int width, height, originX, originY;
 
@@ -146,6 +147,7 @@ public class Graphics3D {
             setLight(l.getAmbIntensity(), l.getDirIntensity(), d.x, d.y, d.z);
         }
         setToon(e.shading == Effect3D.TOON_SHADING, e.toonThreshold, e.toonHigh, e.toonLow);
+        sphere = e.sphere;
         return e.transparency;
     }
 
@@ -154,12 +156,14 @@ public class Graphics3D {
         opts[0] = nverts; opts[1] = ntris; opts[2] = patternMask; opts[3] = face;
         opts[4] = blend ? 1 : 0; opts[5] = pass; opts[6] = reuse ? 1 : 0;
         opts[7] = tex == null ? 0 : tex.width; opts[8] = tex == null ? 0 : tex.height;
-        Native.g3dFigure(pixels, I, pos, nrm, P, tris, opts, tex == null ? null : tex.pix, tex == null ? null : tex.alpha);
+        opts[9] = sphere == null ? 0 : sphere.width; opts[10] = sphere == null ? 0 : sphere.height;
+        Native.g3dFigure(pixels, I, pos, nrm, P, tris, opts, tex == null ? null : tex.pix, tex == null ? null : tex.alpha,
+                         sphere == null ? null : sphere.pix);
     }
 
     private void figure(Figure f, boolean blend) {
         boolean reuse = false;
-        f.pose(P[19] >= 0);
+        f.pose(P[19] >= 0 || sphere != null);
         for (int pass = 0; pass < (blend ? 2 : 1); pass++) {
             if (f.hasColored) {
                 draw(f.pos, f.nrm, f.numVertices, f.tris, f.numTris, f.pattern, -1, blend, pass, reuse, null);
@@ -244,6 +248,9 @@ public class Graphics3D {
         boolean lit = (command & PATTR_LIGHTING) != 0 && (attrs & ENV_ATTR_LIGHTING) != 0 && normalMode != 0
                       && (type == PRIMITVE_TRIANGLES || type == PRIMITVE_QUADS);
         if (lit) flags |= Native.G3D_FIG_LIGHTING;
+        boolean shiny = (command & PATTR_SPHERE_MAP) != 0 && (attrs & ENV_ATTR_SPHERE_MAP) != 0 && normalMode != 0 && sphere != null
+                        && (type == PRIMITVE_TRIANGLES || type == PRIMITVE_QUADS);
+        if (shiny) flags |= 0x40;
         boolean blend = (attrs & ENV_ATTR_SEMI_TRANSPARENT) != 0;
         int face = textured ? 0 : -1;
         int nv, nt;
@@ -253,9 +260,9 @@ public class Graphics3D {
         if (type == PRIMITVE_TRIANGLES || type == PRIMITVE_QUADS) {
             int per = type == PRIMITVE_TRIANGLES ? 3 : 4;
             nv = num * per; nt = num * (per - 2);
-            room(nv, nt, lit);
+            room(nv, nt, lit || shiny);
             for (int i = 0; i < nv * 3; i++) pp[i] = vtx[vo + i];
-            if (lit) {
+            if (lit || shiny) {
                 for (int i = 0; i < nv; i++) {
                     int s = no + (normalMode == PDATA_NORMAL_PER_FACE ? (i / per) * 3 : i * 3);
                     pn[i * 3] = nor[s]; pn[i * 3 + 1] = nor[s + 1]; pn[i * 3 + 2] = nor[s + 2];
@@ -276,7 +283,7 @@ public class Graphics3D {
                 }
             }
             for (int pass = 0; pass < (blend ? 2 : 1); pass++) {
-                draw(pp, lit ? pn : null, nv, pt, nt, 0, face, blend, pass, pass > 0, textured ? texture : null);
+                draw(pp, lit || shiny ? pn : null, nv, pt, nt, 0, face, blend, pass, pass > 0, textured ? texture : null);
             }
             P[19] = amb;
             return;

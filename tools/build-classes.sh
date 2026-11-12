@@ -16,6 +16,43 @@ for f in java/src/javax/microedition/lcdui/game/*.java; do
   sed -e 's/^package javax\.microedition\.lcdui\.game;/package com.siemens.mp.color_game;/' \
       -e 's/javax\.microedition\.lcdui\.game\./com.siemens.mp.color_game./g' $f > $G/$(basename $f)
 done
+# The older Mascot Capsule API of Motorola, Vodafone and JBlend phones: the same
+# classes in other packages, drawn through lcdui.Graphics (which implements
+# each package's Graphics3D interface).
+for P in com.motorola.graphics.j3d com.vodafone.v10.graphics.j3d com.jblend.graphics.j3d; do
+  G=$OUT/gen/$(echo $P | tr . /)
+  mkdir -p $G
+  for f in java/src/com/mascotcapsule/micro3d/v3/*.java; do
+    n=$(basename $f .java)
+    [ $n = Graphics3D ] && n=Render3D
+    sed -e "s/^package com\.mascotcapsule\.micro3d\.v3;/package $P;/" \
+        -e 's/\bGraphics3D\b/Render3D/g' $f > $G/$n.java
+  done
+  cat > $G/Graphics3D.java <<JAVA
+package $P;
+/** Implemented by javax.microedition.lcdui.Graphics. */
+public interface Graphics3D {
+    void drawFigure(Figure figure, int x, int y, FigureLayout layout, Effect3D effect);
+}
+JAVA
+  cat > $G/RenderProxy.java <<JAVA
+package $P;
+import javax.microedition.lcdui.Graphics;
+/** Draws a figure into a Graphics; not part of the phone API. */
+public final class RenderProxy {
+    private static final Render3D R = new Render3D();
+    private RenderProxy() {}
+    public static synchronized void drawFigure(Graphics g, Figure figure, int x, int y, FigureLayout layout, Effect3D effect) {
+        R.bind(g);
+        try {
+            R.drawFigure(figure, x, y, layout, effect);
+        } finally {
+            R.release(g);
+        }
+    }
+}
+JAVA
+done
 find java/src $OUT/gen -name '*.java' > $OUT/sources.txt
 java -jar tools/ecj-4.6.1.jar -source 1.4 -target 1.4 -nowarn -bootclasspath $CLDC \
      -d $OUT/tmp @$OUT/sources.txt

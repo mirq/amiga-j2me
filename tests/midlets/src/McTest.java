@@ -6,7 +6,9 @@ import javax.microedition.midlet.*;
 public class McTest extends MIDlet implements Runnable {
     Figure fig, old;
     ActionTable act;
-    Texture tex;
+    Texture tex, shine;
+    com.motorola.graphics.j3d.Figure motoFig;
+    com.motorola.graphics.j3d.Texture motoTex;
     volatile boolean running = true;
     Canvas canvas;
     int frame;
@@ -21,6 +23,10 @@ public class McTest extends MIDlet implements Runnable {
             old = new Figure("/mc_old.mbac");
             old.setTexture(tex);
             act = new ActionTable("/mc.mtra");
+            shine = new Texture("/mc_sphere.bmp", false);
+            motoTex = new com.motorola.graphics.j3d.Texture("/mc.bmp", true);
+            motoFig = new com.motorola.graphics.j3d.Figure("/mc_old.mbac");
+            motoFig.setTexture(motoTex);
             System.out.println("figure patterns " + fig.getNumPattern() + " actions " + act.getNumActions()
                                + " frames " + (act.getNumFrames(0) >> 16));
         } catch (Throwable t) {
@@ -55,8 +61,10 @@ public class McTest extends MIDlet implements Runnable {
                 layout.setCenter(w / 2 - 40, h / 2);
                 layout.setPerspective(10, 4000, 512);
                 fig.setPosture(act, 0, (frame % 32 < 16 ? frame % 32 : 32 - frame % 32) << 16);
+                effect.setSphereMap(shine);
                 g3.bind(g);
                 g3.renderFigure(fig, 0, 0, layout, effect);
+                effect.setSphereMap(null);
 
                 // the old-format figure, small, drawn in parallel projection with toon shading
                 effect.setShadingType(Effect3D.TOON_SHADING);
@@ -99,6 +107,14 @@ public class McTest extends MIDlet implements Runnable {
                     Graphics3D.COMMAND_END });
                 g3.flush();
                 g3.release(g);
+
+                // the Motorola flavour of the API: the Graphics itself draws the figure
+                com.motorola.graphics.j3d.AffineTrans mt = new com.motorola.graphics.j3d.AffineTrans();
+                mt.setIdentity();
+                mt.rotationY(frame * 30);
+                mt.m23 = 300;
+                com.motorola.graphics.j3d.FigureLayout ml = new com.motorola.graphics.j3d.FigureLayout(mt, 1400, 1400, w / 2 + 20, h - 45);
+                ((com.motorola.graphics.j3d.Graphics3D) g).drawFigure(motoFig, 0, 0, ml, new com.motorola.graphics.j3d.Effect3D());
                 shown++;
             }
         };
