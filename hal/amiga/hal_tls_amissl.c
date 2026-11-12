@@ -224,7 +224,13 @@ int hal_tls_write(int handle, const void *buf, int len)
     if ((unsigned)handle >= MAX_TLS || !s_tls[handle].used) return -1;
     t = &s_tls[handle];
     n = SSL_write(t->ssl, (APTR)buf, len);
-    if (!flush_out(t) || n <= 0) { while (ERR_get_error()) {} return -1; }
+    if (n <= 0) {
+        int err = SSL_get_error(t->ssl, n);
+        hal_log("TLS: write of %d bytes returned %d, error %d\n", len, n, err);
+        log_ssl_error("write failed");
+        return -1;
+    }
+    if (!flush_out(t)) { hal_log("TLS: the socket did not take the data\n"); return -1; }
     return n;
 }
 

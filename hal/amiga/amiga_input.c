@@ -81,7 +81,23 @@ static void drain(void)
 	struct IntuiMessage * msg;
 	int                   ox, oy;
 
-	if (!window || !port_has_messages(window->UserPort)) return;
+	if (!window) return;
+#if defined(AJ_AMIGA_WOS)
+	{
+		/* On a real PowerPC card the 68k (and with it input.device, Intuition and
+		 * the 68k's timers) only runs when the PPC hands over, and what the 68k
+		 * wrote may still sit in its data cache: looking at the port's list from
+		 * the PPC shows nothing. So GetMsg is called outright (a switch to the 68k
+		 * and back), but no more often than every 10 ms. In an emulator both CPUs
+		 * run side by side and none of this shows. */
+		static uint32_t s_last68k;
+		uint32_t const now = amiga_ticks_ms();
+		if ((uint32_t)(now - s_last68k) < 10u) return;
+		s_last68k = now;
+	}
+#else
+	if (!port_has_messages(window->UserPort)) return;
+#endif
 
 	amiga_video_offset(&ox, &oy);
 

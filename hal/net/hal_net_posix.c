@@ -9,6 +9,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 int hal_net_open(const char *host, int port)
 {
@@ -34,8 +35,17 @@ int hal_net_read(int handle, void *buf, int len)
 
 int hal_net_write(int handle, const void *buf, int len)
 {
-    int n = (int)send(handle, buf, (size_t)len, 0);
-    return n < 0 ? -1 : n;
+    int n, tries = 0;
+    /* an interrupted or not-yet-possible send is tried again for a while */
+    for (;;) {
+        errno = 0;
+        n = (int)send(handle, buf, (size_t)len, 0);
+        if (n > 0) return n;
+        if (++tries > 200 || (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK && errno != 0)) break;
+        hal_sleep_ms(5);
+    }
+    hal_log("net: send of %d bytes returned %d, errno %d\n", len, n, errno);
+    return -1;
 }
 
 int hal_net_available(int handle)
