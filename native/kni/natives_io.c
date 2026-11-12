@@ -151,6 +151,17 @@ KNIEXPORT KNI_RETURNTYPE_INT Java_aj_Native_probe(void)
         extern int aj_probe_coherency(int flush);
         KNI_ReturnInt(aj_probe_coherency(what == 31));
 #endif
+#if defined(WOS) || defined(__mc68000__)
+    } else if (what == 32) {
+        extern int aj_probe_68k_speed(void);
+        KNI_ReturnInt(aj_probe_68k_speed());
+#endif
+#if defined(WOS)
+    } else if (what >= 33 && what <= 38) {  /* where the 68k's AllocMem puts 70000 bytes for a PPC task */
+        static const unsigned long fl[] = { 4, 4 | 0x400, 4 | 0x100, 0x400, 0, 1 };
+        extern void *aj_probe_alloc(unsigned long size, unsigned long flags);
+        KNI_ReturnInt((jint)(size_t)aj_probe_alloc(70000, fl[what - 33]));
+#endif
     } else if (what == 10) { KNI_ReturnInt((jint)(size_t)&pr_a);
     } else if (what == 11) { KNI_ReturnInt((jint)(size_t)&Java_aj_Native_probe);
     } else if (what == 12) { volatile int on_stack = 0; KNI_ReturnInt((jint)(size_t)&on_stack);

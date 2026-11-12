@@ -16,6 +16,7 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <string.h>
+#include <stdint.h>
 
 /* A call into a 68k library: the LPn macros of each SDK, which differ in what
  * follows the library base. */
@@ -75,6 +76,10 @@ static int s_failed;
 #define SSL_shutdown(s)               AJ_CALL(LP1, 0x2322, int, SSL_shutdown, APTR, s, a0, , s_ssl)
 #define SSL_CTX_set_default_verify_paths(c) AJ_CALL(LP1, 0x23d0, int, SSL_CTX_set_default_verify_paths, APTR, c, a0, , s_ssl)
 #define SSL_set1_host(s, h)           AJ_CALL(LP2, 0x68e8, int, SSL_set1_host, APTR, s, a0, APTR, h, a1, , s_ssl)
+#define SSL_SESSION_free(x)            AJ_CALL(LP1NR, 0x21a8, SSL_SESSION_free, APTR, x, a0, , s_ssl)
+#define SSL_set_session(s, x)          AJ_CALL(LP2, 0x21b4, int, SSL_set_session, APTR, s, a0, APTR, x, a1, , s_ssl)
+#define SSL_get1_session(s)            AJ_CALL(LP1, 0x23e2, APTR, SSL_get1_session, APTR, s, a0, , s_ssl)
+#define SSL_session_reused(s)          AJ_CALL(LP1, 0x68dc, int, SSL_session_reused, APTR, s, a0, , s_ssl)
 #define TLS_client_method()           AJ_CALL(LP0, 0x6936, APTR, TLS_client_method, , s_ssl)
 
 #define BIO_CTRL_PENDING 10
@@ -84,8 +89,36 @@ static int s_failed;
 #define SSL_VERIFY_PEER 1
 
 #define MAX_TLS 8
-typedef struct { APTR ssl, rbio, wbio; int sock, used; } Tls;
+typedef struct { APTR ssl, rbio, wbio; int sock, used, port; char host[64]; } Tls;
 static Tls s_tls[MAX_TLS];
+
+/* Sessions of the servers talked to last: a second connection to one of them
+ * resumes its session and skips the certificates, the slow part of a
+ * handshake on a 68060 (10 s and more). */
+#define MAX_SESSIONS 4
+static struct { char host[64]; int port; APTR session; unsigned long used; } s_sess[MAX_SESSIONS];
+static unsigned long s_sess_clock;
+
+static APTR session_for(const char *host, int port)
+{
+    int i;
+    for (i = 0; i < MAX_SESSIONS; i++)
+        if (s_sess[i].session && s_sess[i].port == port && !strcmp(s_sess[i].host, host)) { s_sess[i].used = ++s_sess_clock; return s_sess[i].session; }
+    return NULL;
+}
+
+static void session_keep(const char *host, int port, APTR session)
+{
+    int i, slot = 0;
+    if (!session || !host[0]) { if (session) SSL_SESSION_free(session); return; }
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        if (s_sess[i].session && s_sess[i].port == port && !strcmp(s_sess[i].host, host)) { slot = i; break; }
+        if (s_sess[i].used < s_sess[slot].used) slot = i;
+    }
+    if (s_sess[slot].session) SSL_SESSION_free(s_sess[slot].session);
+    strcpy(s_sess[slot].host, host);
+    s_sess[slot].port = port; s_sess[slot].session = session; s_sess[slot].used = ++s_sess_clock;
+}
 
 static void log_ssl_error(const char *what)
 {
@@ -138,6 +171,7 @@ void hal_tls_shutdown(void)
 {
     int i;
     for (i = 0; i < MAX_TLS; i++) if (s_tls[i].used) hal_tls_close(i);
+    for (i = 0; i < MAX_SESSIONS; i++) if (s_sess[i].session) { SSL_SESSION_free(s_sess[i].session); s_sess[i].session = NULL; }
     if (s_ctx) { SSL_CTX_free(s_ctx); s_ctx = NULL; }
     if (s_ssl) {
         struct TagItem done; done.ti_Tag = TAG_DONE; done.ti_Data = 0;
@@ -196,20 +230,48 @@ int hal_tls_open(const char *host, int port)
         return -1;
     }
     SSL_set_bio(t->ssl, t->rbio, t->wbio);      /* the SSL owns them now */
+    t->port = port;
+    t->host[0] = 0;
+    if (strlen(host) < sizeof(t->host)) strcpy(t->host, host);
+    { APTR old = session_for(host, port); if (old) SSL_set_session(t->ssl, old); }
     SHARE(host, strlen(host) + 1);
     SSL_ctrl(t->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME, 0, (APTR)host);
     SSL_set1_host(t->ssl, (APTR)host);
+    {
+    /* AJ_TLS_TRACE: where the handshake's time goes (in the library, sending, waiting for the peer) */
+    char env[8];
+    int trace = GetVar((CONST_STRPTR)"AJ_TLS_TRACE", (STRPTR)env, sizeof(env), GVF_GLOBAL_ONLY) > 0;
+    uint64_t t_start = hal_monotonic_micros(), t_ssl = 0, t_out = 0, t_in = 0, t0;
+    int steps = 0;
     for (;;) {
-        int r = SSL_connect(t->ssl), err;
-        if (!flush_out(t)) { r = -1; err = 0; }
-        else if (r == 1) break;
+        int r, err, fed;
+        t0 = hal_monotonic_micros();
+        r = SSL_connect(t->ssl);
+        t_ssl += hal_monotonic_micros() - t0; steps++;
+        t0 = hal_monotonic_micros();
+        fed = flush_out(t);
+        t_out += hal_monotonic_micros() - t0;
+        if (!fed) { r = -1; err = 0; }
+        else if (r == 1) {
+            if (trace) hal_log("TLS: %s handshake %lu ms in %d steps: library %lu, sending %lu, receiving %lu\n",
+                               SSL_session_reused(t->ssl) ? "resumed" : "full",
+                               (unsigned long)((hal_monotonic_micros() - t_start) / 1000), steps,
+                               (unsigned long)(t_ssl / 1000), (unsigned long)(t_out / 1000), (unsigned long)(t_in / 1000));
+            break;
+        }
         else err = SSL_get_error(t->ssl, r);
-        if (err == SSL_ERROR_WANT_READ && feed_in(t)) continue;
+        if (err == SSL_ERROR_WANT_READ) {
+            t0 = hal_monotonic_micros();
+            fed = feed_in(t);
+            t_in += hal_monotonic_micros() - t0;
+            if (fed) continue;
+        }
         if (err == SSL_ERROR_WANT_WRITE) continue;
         log_ssl_error("the handshake failed");
         SSL_free(t->ssl);
         hal_net_close(sock);
         return -1;
+    }
     }
     t->used = 1;
     return i;
@@ -264,6 +326,7 @@ void hal_tls_close(int handle)
     t = &s_tls[handle];
     SSL_shutdown(t->ssl);
     flush_out(t);
+    session_keep(t->host, t->port, SSL_get1_session(t->ssl));
     SSL_free(t->ssl);
     hal_net_close(t->sock);
     t->used = 0;

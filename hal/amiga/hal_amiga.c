@@ -280,3 +280,25 @@ int aj_probe_coherency(int flush)
     return bad_in * 1000 + bad_out;
 }
 #endif
+
+#if !defined(AJ_AMIGA_MOS)
+/* diagnostics: milliseconds the 68k needs for 8 exec CopyMem calls of 2 MB.
+ * From the WarpOS build the calls go through Run68K; compared with the same
+ * figure from the 68k build it shows how fast 68k code runs under a PPC task. */
+int aj_probe_68k_speed(void)
+{
+    unsigned long n = 2UL << 20;
+    char *a = (char *)AllocMem(n, MEMF_FAST), *b = (char *)AllocMem(n, MEMF_FAST);
+    uint64_t t0;
+    int i, ms = -1;
+    if (a && b) {
+        CopyMem(a, b, n);
+        t0 = hal_monotonic_micros();
+        for (i = 0; i < 8; i++) CopyMem(a, b, n);
+        ms = (int)((hal_monotonic_micros() - t0) / 1000);
+    }
+    if (a) FreeMem(a, n);
+    if (b) FreeMem(b, n);
+    return ms;
+}
+#endif

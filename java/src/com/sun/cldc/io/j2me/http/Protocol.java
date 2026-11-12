@@ -137,7 +137,7 @@ public class Protocol implements ConnectionBaseInterface, HttpConnection {
         if (data != null) out.write(data);
         out.flush();
 
-        in = socket.openInputStream();
+        in = new Buffered(socket.openInputStream());
         String line = readLine(in);
         if (line == null || !line.startsWith("HTTP/")) throw new IOException("no HTTP response");
         int sp = line.indexOf(' ');
@@ -170,12 +170,56 @@ public class Protocol implements ConnectionBaseInterface, HttpConnection {
                 if (c >= 0 && left > 0) left--;
                 return c;
             }
+            public int read(byte[] b, int off, int len) throws IOException {
+                if (off < 0 || len < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
+                if (len == 0) return 0;
+                if (left == 0) return -1;
+                if (left > 0 && len > left) len = (int) left;
+                int n = src.read(b, off, len);
+                if (n > 0 && left > 0) left -= n;
+                return n;
+            }
             public int available() throws IOException {
                 int a = src.available();
                 return left >= 0 && a > left ? (int) left : a;
             }
             public void close() throws IOException { src.close(); }
         };
+    }
+
+    /**
+     * Reads the socket in blocks: a native call per byte is slow, and for a TLS
+     * connection under WarpOS each one is a switch to the 68k and back.
+     */
+    private static final class Buffered extends InputStream {
+        private final InputStream src;
+        private final byte[] buf = new byte[1024];
+        private int pos, end;
+        private boolean eof;
+
+        Buffered(InputStream src) { this.src = src; }
+
+        private boolean fill() throws IOException {
+            if (eof) return false;
+            int n = src.read(buf, 0, buf.length);
+            if (n <= 0) { eof = true; return false; }
+            pos = 0; end = n;
+            return true;
+        }
+        public int read() throws IOException {
+            if (pos >= end && !fill()) return -1;
+            return buf[pos++] & 0xFF;
+        }
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (len == 0) return 0;
+            if (pos >= end && !fill()) return -1;
+            int n = Math.min(len, end - pos);
+            System.arraycopy(buf, pos, b, off, n);
+            pos += n;
+            return n;
+        }
+        public int available() throws IOException { return end - pos + (eof ? 0 : src.available()); }
+        public void close() throws IOException { src.close(); }
     }
 
     public DataInputStream openDataInputStream() throws IOException {
