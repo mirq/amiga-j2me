@@ -103,6 +103,9 @@ int hal_list_dir(const char *path, void (*cb)(const char *name, void *user), voi
 static uint16_t *s_fb;
 static int s_fb_w, s_fb_h;
 
+int  hal_display_ask(const char *game) { (void)game; return HAL_DISPLAY_RTG; }
+void hal_display_set(int display) { (void)display; }
+
 int hal_video_open(int width, int height)
 {
     free(s_fb);

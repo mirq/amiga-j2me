@@ -49,9 +49,33 @@ static int uaegfx_card(void)
 }
 #endif
 
+/* The AGA screen (amiga_video_aga.c) instead of the RTG one */
+static int             s_aga;
+struct Window *aga_window(void);
+void aga_offset(int *x, int *y);
+int  aga_width(void);
+int  aga_height(void);
+int  aga_open(int width, int height);
+void aga_close(void);
+void aga_hide_pointer(void);
+void aga_present(const uint16_t *pixels, int pitch, const AmigaRect *rects, int count);
+
+void amiga_video_use_aga(int on) { s_aga = on; }
+int  amiga_video_is_aga(void) { return s_aga; }
+
+/* An AGA chipset (Alice) is there. */
+int amiga_video_have_aga(void)
+{
+#if defined(AJ_AMIGA_MOS)
+	return 0;
+#else
+	return (GfxBase->ChipRevBits0 & GFXF_AA_ALICE) != 0;
+#endif
+}
+
 /* amiga_input.c reads the window's port. */
-struct Window *amiga_video_window(void) { return s_window; }
-void amiga_video_offset(int *x, int *y) { *x = s_ox; *y = s_oy; }
+struct Window *amiga_video_window(void) { return s_aga ? aga_window() : s_window; }
+void amiga_video_offset(int *x, int *y) { if (s_aga) { aga_offset(x, y); return; } *x = s_ox; *y = s_oy; }
 
 static int pixfmt_ok(ULONG fmt)
 {
@@ -189,6 +213,7 @@ int amiga_video_open(int width, int height)
 	ULONG id;
 	int   sw, sh;
 
+	if (s_aga) return aga_open(width, height);
 	if (s_screen) return 1;
 
 	id = choose_mode(width, height);
@@ -285,6 +310,7 @@ int amiga_video_open(int width, int height)
 
 void amiga_video_close(void)
 {
+	if (s_aga) { aga_close(); return; }
 	if (s_window)
 	{
 		ClearPointer(s_window);
@@ -305,11 +331,12 @@ void amiga_video_close(void)
 	s_lineBuf = NULL;
 }
 
-int amiga_video_width(void)  { return s_width; }
-int amiga_video_height(void) { return s_height; }
+int amiga_video_width(void)  { return s_aga ? aga_width() : s_width; }
+int amiga_video_height(void) { return s_aga ? aga_height() : s_height; }
 
 void amiga_video_hide_pointer(void)
 {
+	if (s_aga) { aga_hide_pointer(); return; }
 	if (!s_window) return;
 
 	/* An empty 1x1 sprite, in chip memory as SetPointer wants. */
@@ -469,6 +496,7 @@ void amiga_video_present(const uint16_t *pixels, int pitch, const AmigaRect *rec
 	ULONG   base = 0, bpr = 0;
 	int     r, border;
 
+	if (s_aga) { aga_present(pixels, pitch, rects, count); return; }
 	if (!s_screen || count <= 0) return;
 
 	/* The border is blacked out in the screen memory itself, like the picture:

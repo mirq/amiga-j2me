@@ -47,6 +47,12 @@ int hal_list_dir(const char *path, void (*cb)(const char *name, void *user), voi
 /* ---- video: one R5G6B5 picture (native-endian 16-bit words) ---- */
 typedef struct HalRect { int32_t x, y, w, h; } HalRect;
 
+/* Which display hal_video_open opens: an RTG card or the AGA chipset. */
+enum { HAL_DISPLAY_RTG = 0, HAL_DISPLAY_AGA = 1 };
+/* Asks the user which display to use for the named game (a requester), when
+ * the machine has both; else returns the one there is. -1 = the user quit. */
+int  hal_display_ask(const char *game);
+void hal_display_set(int display);
 /* Opens the display for a width x height picture. 0 = ok. */
 int  hal_video_open(int width, int height);
 void hal_video_close(void);

@@ -6,10 +6,12 @@ rm -rf dist; mkdir -p dist
 readme() { cat > "$1/README.txt" <<'TXT'
 amiga-j2me - J2ME (MIDP 2.0 / CLDC 1.1) runtime for the Amiga
 
-  j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-heap MB] [-rms DIR] [-v] game.jar|game.jad
+  j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-display rtg|aga|ask] [-heap MB]
+       [-rms DIR] [-v] game.jar|game.jad
 
 Needs: an RTG card with cybergraphics.library V41+ (CyberGraphX or
-Picasso96) and a 16-bit screen mode; AHI for sound (optional); a TCP/IP
+Picasso96) and a 16-bit screen mode, or the AGA chipset (a requester asks
+when there are both; -display or display= in the game's .cfg decides it); AHI for sound (optional); a TCP/IP
 stack for games that go online, and AmiSSL 5 for https (optional).
 Keep aj_classes.zip in the same drawer as j2me.
 

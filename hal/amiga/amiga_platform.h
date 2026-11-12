@@ -81,6 +81,10 @@ typedef struct AmigaRect
  * native 16-bit R5G6B5 (big-endian words). Returns 0 on failure. */
 int  amiga_video_open(int width, int height);
 void amiga_video_close(void);
+/* The AGA (8-bit chipset) screen instead of RTG: chosen before opening. */
+void amiga_video_use_aga(int on);
+int  amiga_video_is_aga(void);
+int  amiga_video_have_aga(void);
 /* The card's 16-bit RTG screen sizes, at most max of them, sorted, no
  * duplicates. Returns how many. */
 int  amiga_video_modes(int *widths, int *heights, int max);

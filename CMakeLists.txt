@@ -19,11 +19,19 @@ elseif(AJ_TARGET STREQUAL "aos3-m68k" OR AJ_TARGET STREQUAL "morphos-ppc" OR AJ_
   # The Amiga platform layer (from the civctp2 port) + our HAL on top of it
   set(HAL_SRC hal/amiga/hal_amiga.c hal/amiga/amiga_platform.c hal/amiga/amiga_clock.c
               hal/amiga/amiga_log.c hal/amiga/amiga_video.c hal/amiga/amiga_input.c
-              hal/amiga/amiga_audio.c hal/amiga/hal_tls_amissl.c)
+              hal/amiga/amiga_audio.c hal/amiga/hal_tls_amissl.c hal/amiga/amiga_video_aga.c)
   if(AJ_TARGET STREQUAL "aos3-m68k")
     set(AJ_PLATFORM_DEF AJ_AMIGA_060)
     list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)   # size-class malloc over exec
     list(APPEND HAL_SRC hal/amiga/hal_net_bsdsocket.c)
+    # Kalms' c2p for the AGA screen, assembled with the vasm of bebbo's toolchain
+    find_program(AJ_VASM vasmm68k_mot HINTS /opt/amiga/bin REQUIRED)
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/c2p_glue.o
+      COMMAND ${AJ_VASM} -quiet -Fhunk -m68040 -no-opt -I${CMAKE_CURRENT_SOURCE_DIR}/hal/amiga/c2p
+              -o ${CMAKE_CURRENT_BINARY_DIR}/c2p_glue.o ${CMAKE_CURRENT_SOURCE_DIR}/hal/amiga/c2p/c2p_glue.s
+      DEPENDS hal/amiga/c2p/c2p_glue.s hal/amiga/c2p/c2p_rect.s
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/hal/amiga/c2p)
+    list(APPEND HAL_SRC ${CMAKE_CURRENT_BINARY_DIR}/c2p_glue.o)
   elseif(AJ_TARGET STREQUAL "wos-ppc")
     set(AJ_PLATFORM_DEF AJ_AMIGA_WOS)
     list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)

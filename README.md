@@ -7,6 +7,11 @@ mobile-phone Java games (`.jar`) on a 68060 or a PowerPC Amiga.
 j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-heap MB] [-rms DIR] [-v] game.jar|game.jad
 ```
 
+Display: on a machine with both an RTG card and the AGA chipset a requester
+asks which to use (`-display rtg|aga` or `display=` in the game's `.cfg`
+skips it). AGA is a 256-colour chipset screen (a fixed, dithered palette;
+Mikael Kalms' c2p), as large as fits a 320x256 screen.
+
 Keys: arrows, Return = fire, Space = 0, Ctrl = 5, F1/F2 = soft keys, 0-9,
 numpad `*` and `/`, Esc = quit. Two arrows together send the phone's diagonal
 key (up+right = 3, up+left = 1, down+left = 7, down+right = 9). `-w`/`-h` set the screen size the game sees (128x128, 176x208,
@@ -72,11 +77,12 @@ w=176
 h=208
 scale=2
 heap=16
+display=aga
 microedition.platform=Nokia6230
 microedition.locale=pl
 ```
 
-`w`, `h`, `scale` and `heap` are the command line options (which win); every
+`w`, `h`, `scale`, `heap` and `display` are the command line options (which win); every
 other line is a system property for `System.getProperty`.
 
 Two of them change the keys:

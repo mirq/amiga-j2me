@@ -26,6 +26,7 @@
 #include <intuition/screens.h>
 #include <graphics/gfx.h>
 #include <graphics/displayinfo.h>
+#include <graphics/gfxbase.h>
 #include <devices/inputevent.h>
 #include <devices/timer.h>
 #include <libraries/locale.h>

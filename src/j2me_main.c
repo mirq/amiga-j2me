@@ -31,7 +31,7 @@ static int run_vm(void) { return aj_vm_main(s_argc, s_argv); }
 #define MAX_PROPS 24
 static char s_props[MAX_PROPS][160];
 static int s_nprops;
-static char s_cfg_w[16], s_cfg_h[16], s_cfg_scale[16], s_cfg_heap[16];
+static char s_cfg_w[16], s_cfg_h[16], s_cfg_scale[16], s_cfg_heap[16], s_cfg_display[16];
 
 /* -Dname=value for the VM; a later one with the same name replaces an earlier one */
 static void set_prop(const char *name, size_t nlen, const char *value, size_t vlen)
@@ -77,6 +77,7 @@ static void read_cfg(const char *path)
             else if (nlen == 1 && name[0] == 'h') copy_opt(s_cfg_h, sizeof(s_cfg_h), val, vlen);
             else if (nlen == 5 && !strncmp(name, "scale", 5)) copy_opt(s_cfg_scale, sizeof(s_cfg_scale), val, vlen);
             else if (nlen == 4 && !strncmp(name, "heap", 4)) copy_opt(s_cfg_heap, sizeof(s_cfg_heap), val, vlen);
+            else if (nlen == 7 && !strncmp(name, "display", 7)) copy_opt(s_cfg_display, sizeof(s_cfg_display), val, vlen);
             else if (nlen > 0) set_prop(name, nlen, val, vlen);
         }
     }
@@ -86,9 +87,10 @@ static void read_cfg(const char *path)
 static void usage(void)
 {
     hal_log("amiga-j2me - J2ME (MIDP 2.0 / CLDC 1.1) runtime\n"
-            "usage: j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-heap MB] [-rms DIR] [-v] game.jar|game.jad [MIDletClass]\n"
+            "usage: j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-display rtg|aga|ask] [-heap MB] [-rms DIR] [-v] game.jar|game.jad [MIDletClass]\n"
             "  -w, -h   screen size the game sees (default 240 x 320)\n"
             "  -scale   show each pixel N x N (1..4), for cards without small screen modes\n"
+            "  -display rtg, aga or ask (the default: a requester when the machine has both)\n"
             "  -heap    Java heap in MB (default 8)\n"
             "  -rms     directory for the game's saved data (default: <game.jar>.rms)\n"
             "  -v       print start-up progress\n"
@@ -101,7 +103,8 @@ int main(int argc, char **argv)
     static char heap_opt[32], classpath[640], rms[320], jar_from_jad[320], cfg[330];
     static char *vm_argv[64];
     const char *jar = NULL, *cls = NULL, *w = NULL, *h = NULL, *rms_dir = NULL, *heap = NULL;
-    const char *scale = NULL, *jad = NULL;
+    const char *scale = NULL, *jad = NULL, *display = NULL;
+    static char aga_scale[4];
     const char *classes = getenv("AJ_CLASSES");
     int verbose = 0, i, n = 0, rc;
 
@@ -111,6 +114,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "-h") && i + 1 < argc) h = argv[++i];
         else if (!strcmp(argv[i], "-heap") && i + 1 < argc) heap = argv[++i];
         else if (!strcmp(argv[i], "-scale") && i + 1 < argc) scale = argv[++i];
+        else if (!strcmp(argv[i], "-display") && i + 1 < argc) display = argv[++i];
         else if (!strcmp(argv[i], "-rms") && i + 1 < argc) rms_dir = argv[++i];
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else if (argv[i][0] == '-' || argv[i][0] == '?') { usage(); hal_shutdown(); return 5; }
@@ -170,6 +174,29 @@ int main(int argc, char **argv)
     if (!h && s_cfg_h[0]) h = s_cfg_h;
     if (!scale && s_cfg_scale[0]) scale = s_cfg_scale;
     if (!heap) heap = s_cfg_heap[0] ? s_cfg_heap : "8";
+    if (!display && s_cfg_display[0]) display = s_cfg_display;
+    {
+        /* RTG or AGA: as asked, else a requester (only when the machine has both) */
+        int which;
+        if (display && (display[0] == 'a' || display[0] == 'A') && (display[1] == 'g' || display[1] == 'G')) which = HAL_DISPLAY_AGA;
+        else if (display && (display[0] == 'r' || display[0] == 'R')) which = HAL_DISPLAY_RTG;
+        else {
+            const char *name = jad ? jad : jar;
+            size_t k = strlen(name);
+            while (k > 0 && name[k - 1] != '/' && name[k - 1] != ':') k--;
+            which = hal_display_ask(name + k);
+            if (which < 0) { hal_shutdown(); return 0; }
+        }
+        hal_display_set(which);
+        if (which == HAL_DISPLAY_AGA) {
+            /* the chipset screen: as large as fits a 320x256 screen (no interlace);
+             * a picture larger than that gets hires or interlace at scale 1 */
+            int gw = w ? atoi(w) : 240, gh = h ? atoi(h) : 320, sc = 1;
+            while (sc < 4 && gw * (sc + 1) <= 320 && gh * (sc + 1) <= 256) sc++;
+            sprintf(aga_scale, "%d", sc);
+            scale = aga_scale;
+        }
+    }
     sprintf(heap_opt, "=HeapCapacity%dM", atoi(heap) > 0 ? atoi(heap) : 8);
     sprintf(classpath, "%s,%s", classes, jar);
     if (!rms_dir) { sprintf(rms, "%s.rms", jar); rms_dir = rms; }

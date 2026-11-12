@@ -22,6 +22,13 @@ int hal_init(int argc, char **argv)
     struct DateStamp d;
     (void)argc; (void)argv;
     if (!amiga_platform_init()) return -1;
+    {
+        /* "setenv AJ_DISPLAY aga": the AGA screen for programs that do not ask (aj_cldc) */
+        char env[8];
+        if (GetVar((CONST_STRPTR)"AJ_DISPLAY", (STRPTR)env, sizeof(env), GVF_GLOBAL_ONLY) > 0
+            && (env[0] == 'a' || env[0] == 'A'))
+            hal_display_set(HAL_DISPLAY_AGA);
+    }
 #if defined(__mc68000__)
     /* Java doubles are 64-bit: round every FPU result to double, not to the
      * 68881's 80-bit default (FPCR precision bits 7-6 = 10). Per task. */
@@ -191,6 +198,33 @@ int hal_list_dir(const char *path, void (*cb)(const char *name, void *user), voi
 }
 
 /* ---- video ---- */
+
+int hal_display_ask(const char *game)
+{
+    int widths[4], heights[4];
+    int rtg = CyberGfxBase && amiga_video_modes(widths, heights, 4) > 0;
+    int aga = amiga_video_have_aga();
+    LONG r;
+    if (!aga) return HAL_DISPLAY_RTG;
+    if (!rtg) return HAL_DISPLAY_AGA;
+    {
+        struct EasyStruct es;
+        ULONG args[1];
+        memset(&es, 0, sizeof(es));
+        es.es_StructSize = sizeof(es);
+        es.es_Title = (UBYTE *)"amiga-j2me";
+        es.es_TextFormat = (UBYTE *)"%s\n\nShow the game on the RTG card or on the AGA chipset?";
+        es.es_GadgetFormat = (UBYTE *)"RTG|AGA|Quit";
+        args[0] = (ULONG)game;
+        r = EasyRequestArgs(NULL, &es, NULL, args);
+    }
+    return r == 1 ? HAL_DISPLAY_RTG : r == 2 ? HAL_DISPLAY_AGA : -1;
+}
+
+void hal_display_set(int display)
+{
+    amiga_video_use_aga(display == HAL_DISPLAY_AGA && amiga_video_have_aga());
+}
 
 int hal_video_open(int width, int height)
 {
