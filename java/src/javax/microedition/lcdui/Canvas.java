@@ -37,7 +37,7 @@ public abstract class Canvas extends Displayable {
         }
     }
 
-    boolean softBarVisible() { return !fullScreen && commands.size() > 0; }
+    boolean softBarVisible() { return !fullScreen && hasSoftBar(); }
 
     public int getKeyCode(int gameAction) {
         switch (gameAction) {
@@ -119,11 +119,9 @@ public abstract class Canvas extends Displayable {
         if (softBarVisible()) Display.instance.paintSoftBar(g, this);
     }
 
-    void keyEvent(int type, int keyCode) {
-        if (!fullScreen && (keyCode == KEY_SOFT_LEFT || keyCode == KEY_SOFT_RIGHT) && commands.size() > 0) {
-            if (type == 0) fireCommand(softCommand(keyCode == KEY_SOFT_LEFT ? 0 : 1));
-            return;
-        }
+    void keyEvent(int type, int keyCode, int ch) {
+        if (!fullScreen && softKey(type, keyCode)) return;
+        if (keyCode == 0) return;       // a character with no MIDP key code
         switch (type) {
         case 0: keyPressed(keyCode); break;
         case 1: keyReleased(keyCode); break;

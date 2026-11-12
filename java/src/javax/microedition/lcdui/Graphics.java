@@ -148,6 +148,13 @@ public class Graphics {
         Native.fillTriangle(pix, sw, sh, cx, cy, cw, ch, color, x1 + tx, y1 + ty, x2 + tx, y2 + ty, x3 + tx, y3 + ty);
     }
 
+    void readRGB(int[] argb, int offset, int scanlength, int x, int y, int w, int h) {
+        int sx = x + tx, sy = y + ty;
+        if (w <= 0 || h <= 0) return;
+        if (sx < 0 || sy < 0 || sx + w > sw || sy + h > sh) throw new IllegalArgumentException();
+        Native.toRGB(pix, null, sw, argb, offset, scanlength, sx, sy, w, h);
+    }
+
     // ---- text ----
 
     private int anchorX(int x, int width, int anchor) {

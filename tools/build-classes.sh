@@ -14,6 +14,7 @@ java -jar tools/ecj-4.6.1.jar -source 1.4 -target 1.4 -nowarn -bootclasspath $CL
      -d $OUT/tmp @$OUT/sources.txt
 $GEN/dist/bin/preverify -classpath $CLDC -d $OUT/classes $OUT/tmp
 (cd $OUT/classes && unzip -q -o ../../../$CLDC)          # CLDC classes are already preverified
+rm -rf $OUT/classes/META-INF     # a manifest here would hide the MIDlet JAR's
 rm -f $OUT/aj_classes.zip
 (cd $OUT/classes && zip -q -r -0 ../aj_classes.zip .)
 java -jar $GEN/tools/jcc.jar -writer CLDC_HI_Natives -o $OUT/NativesTable.cpp $OUT/aj_classes.zip

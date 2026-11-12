@@ -74,13 +74,19 @@ public class Display {
         final Displayable old;
         synchronized (LOCK) {
             old = current;
+            if (next instanceof Alert && ((Alert) next).next == null && old != next) ((Alert) next).next = old;
             if (old == next) { requestRepaint(0, 0, width, height); return; }
             current = next;
         }
         final Displayable shown = next;
         callSerially(new Runnable() {
             public void run() {
-                if (old != null) old.hideNotifyImpl();
+                if (old != null) { old.menuOpen = false; old.hideNotifyImpl(); }
+                synchronized (PAINT_LOCK) {      // nothing of the old screen shows through
+                    g.reset(0, 0, width, height);
+                    g.setColor(0xFFFFFF);
+                    g.fillRect(0, 0, width, height);
+                }
                 shown.showNotifyImpl();
                 requestRepaint(0, 0, width, height);
             }
@@ -178,10 +184,11 @@ public class Display {
         gr.fillRect(0, y, width, SOFT_BAR);
         gr.setColor(0xFFFFFF);
         gr.setFont(f);
-        Command l = d.softCommand(0), r = d.softCommand(1);
+        String l = d.softLabel(0), r = d.softLabel(1);
         int ty = y + (SOFT_BAR - f.getHeight()) / 2;
-        if (l != null) gr.drawString(l.getLabel(), 3, ty, Graphics.TOP | Graphics.LEFT);
-        if (r != null) gr.drawString(r.getLabel(), width - 3, ty, Graphics.TOP | Graphics.RIGHT);
+        if (l != null) gr.drawString(l, 3, ty, Graphics.TOP | Graphics.LEFT);
+        if (r != null) gr.drawString(r, width - 3, ty, Graphics.TOP | Graphics.RIGHT);
+        if (d.menuOpen) d.paintMenu(gr);
     }
 
     // ---- input ----
@@ -217,6 +224,13 @@ public class Display {
         return ch > 32 && ch < 256 ? ch : 0;
     }
 
+    /** The character a key types in a text field: printable, or 8 (backspace), 10 (return). */
+    private static int typed(int raw, int ch) {
+        if (raw == 0x41) return 8;
+        if (raw == 0x44 || raw == 0x43) return 10;
+        return ch >= 32 && ch < 256 && ch != 127 ? ch : 0;
+    }
+
     private void enqueue(int kind, int a, int b) {
         if (qCount == queue.length / 3) return;     // full: drop
         int i = ((qHead + qCount) % (queue.length / 3)) * 3;
@@ -234,10 +248,10 @@ public class Display {
                     boolean down = ev[2] != 0;
                     if (raw == 0x45) { if (down) quit = true; break; }    // Esc leaves the MIDlet
                     int key = mapKey(raw, ev[5]);
-                    if (key == 0) break;
+                    if (key == 0 && typed(raw, ev[5]) == 0) break;
                     int bit = gameBit(key);
                     if (down) {
-                        enqueue(rawDown[raw] ? Q_KEY_REPEATED : Q_KEY_PRESSED, key, 0);
+                        enqueue(rawDown[raw] ? Q_KEY_REPEATED : Q_KEY_PRESSED, key, typed(raw, ev[5]));
                         rawDown[raw] = true;
                         downBits |= bit; latchedBits |= bit;
                     } else {
@@ -311,7 +325,7 @@ public class Display {
             busy = true;
             if (d == null) continue;
             try {
-                if (kind <= Q_KEY_REPEATED) d.keyEvent(kind, a);
+                if (kind <= Q_KEY_REPEATED) d.keyEvent(kind, a, b);
                 else d.pointerEvent(kind - Q_PTR_PRESSED, a, b);
             } catch (Throwable t) {
                 System.out.println("event: " + t);

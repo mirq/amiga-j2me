@@ -23,4 +23,20 @@ public final class GameAccess {
         if (x < 0 || y < 0 || x >= img.w || y >= img.h) return false;
         return img.alpha == null || img.alpha[y * img.w + x] != 0;
     }
+
+    /** A mutable image with the pixels (and alpha plane) of another one. */
+    public static Image mutableCopy(Image src) {
+        Image img = new Image(src.w, src.h, true);
+        System.arraycopy(src.pix, 0, img.pix, 0, src.pix.length);
+        if (src.alpha != null) {
+            img.alpha = new byte[src.alpha.length];
+            System.arraycopy(src.alpha, 0, img.alpha, 0, src.alpha.length);
+        }
+        return img;
+    }
+
+    /** Reads back what a Graphics has drawn (Nokia DirectGraphics.getPixels); x, y as for drawing. */
+    public static void readRGB(Graphics g, int[] argb, int offset, int scanlength, int x, int y, int w, int h) {
+        g.readRGB(argb, offset, scanlength, x, y, w, h);
+    }
 }

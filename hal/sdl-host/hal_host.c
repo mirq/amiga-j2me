@@ -150,8 +150,8 @@ int hal_video_screenshot(const char *path)
 }
 
 /* ---- input: scripted through AJ_KEYS for tests ----
- * AJ_KEYS="500:4C 100:-4C 2000:Q" : after 500 ms press raw key 0x4C, 100 ms
- * later release it, 2000 ms later quit. */
+ * AJ_KEYS="500:4C 100:-4C 300:S 2000:Q" : after 500 ms press raw key 0x4C,
+ * 100 ms later release it, 300 ms later write a screenshot, 2000 ms later quit. */
 static const char *s_script;
 static uint64_t s_script_next_us;
 static int s_script_started;
@@ -172,6 +172,14 @@ int hal_poll_event(HalEvent *ev)
     s_script = end + 1; s_script_next_us = 0;
     memset(ev, 0, sizeof(*ev));
     if (*s_script == 'Q') { s_script++; ev->type = HAL_EV_QUIT; return 1; }
+    if (*s_script == 'S') {     /* numbered screenshot: $AJ_SHOT.<n>.ppm */
+        static int shot_no;
+        const char *base = getenv("AJ_SHOT");
+        char path[512];
+        s_script++;
+        if (base) { snprintf(path, sizeof(path), "%s.%d.ppm", base, ++shot_no); hal_video_screenshot(path); }
+        return 0;
+    }
     ev->type = HAL_EV_KEY; ev->down = 1;
     if (*s_script == '-') { ev->down = 0; s_script++; }
     ev->code = (int)strtol(s_script, &end, 16);
