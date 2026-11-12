@@ -4,3 +4,4 @@
 *.warpelf
 .DS_Store
 /tools/ecj-*.jar
+/dist/

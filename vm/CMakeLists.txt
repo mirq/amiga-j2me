@@ -136,3 +136,5 @@ endif()
 
 # VM launcher (console): cldc_vm -classpath <cldc_classes.zip>;<app> Main
 aj_add_program(aj_cldc ${CMAKE_SOURCE_DIR}/src/vm_main.c LIBS cldcvm)
+# the launcher users run: j2me game.jar
+aj_add_program(j2me ${CMAKE_SOURCE_DIR}/src/j2me_main.c LIBS cldcvm)
