@@ -71,6 +71,42 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_g3dDraw(void)
     KNI_ReturnVoid();
 }
 
+/* g3dFigure(dst, i, pos, nrm, params, tris, opts, tex, texAlpha)
+   opts: vertices, triangles, pattern mask, face, blending on, pass, reuse, texture w, h */
+KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_g3dFigure(void)
+{
+    G3dFigure f;
+    const jint *i, *o;
+    KNI_StartHandles(9);
+    KNI_DeclareHandle(hdst); KNI_DeclareHandle(hi); KNI_DeclareHandle(hpos); KNI_DeclareHandle(hnrm);
+    KNI_DeclareHandle(hpar); KNI_DeclareHandle(htris); KNI_DeclareHandle(hopts); KNI_DeclareHandle(htex);
+    KNI_DeclareHandle(hta);
+    KNI_GetParameterAsObject(1, hdst); KNI_GetParameterAsObject(2, hi); KNI_GetParameterAsObject(3, hpos);
+    KNI_GetParameterAsObject(4, hnrm); KNI_GetParameterAsObject(5, hpar); KNI_GetParameterAsObject(6, htris);
+    KNI_GetParameterAsObject(7, hopts); KNI_GetParameterAsObject(8, htex); KNI_GetParameterAsObject(9, hta);
+    i = (const jint *)SNI_GetRawArrayPointer((jarray)hi);
+    if (bind_target(hdst, i) && !KNI_IsNullHandle(hpos) && !KNI_IsNullHandle(htris) && !KNI_IsNullHandle(hpar)
+        && !KNI_IsNullHandle(hopts) && KNI_GetArrayLength((jarray)hopts) >= 9
+        && KNI_GetArrayLength((jarray)hpar) >= G3D_FIG_PARAMS) {
+        o = (const jint *)SNI_GetRawArrayPointer((jarray)hopts);
+        memset(&f, 0, sizeof(f));
+        f.pos = (const float *)RAW(hpos); f.nrm = (const float *)RAW(hnrm);
+        f.params = (const float *)RAW(hpar);
+        f.tris = (const int32_t *)RAW(htris);
+        f.nverts = o[0]; f.ntris = o[1]; f.pattern_mask = o[2]; f.face = o[3];
+        f.blend_enabled = o[4]; f.pass = o[5]; f.reuse = o[6]; f.tw = o[7]; f.th = o[8];
+        f.tex = (const uint16_t *)RAW(htex); f.tex_alpha = (const uint8_t *)RAW(hta);
+        if (f.nverts * 3 <= KNI_GetArrayLength((jarray)hpos)
+            && (!f.nrm || f.nverts * 3 <= KNI_GetArrayLength((jarray)hnrm))
+            && f.ntris * G3D_FIG_INTS <= KNI_GetArrayLength((jarray)htris)
+            && (!f.tex || f.tw * f.th <= KNI_GetArrayLength((jarray)htex))
+            && (!f.tex_alpha || f.tw * f.th <= KNI_GetArrayLength((jarray)hta)))
+            g3d_figure(&f);
+    }
+    KNI_EndHandles();
+    KNI_ReturnVoid();
+}
+
 /* byte[] inflate(byte[] src, int off, int len, int outLen) */
 KNIEXPORT KNI_RETURNTYPE_OBJECT Java_aj_Native_inflate(void)
 {

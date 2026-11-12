@@ -93,6 +93,13 @@ public final class Native {
     /** pos, nrm and tc are byte[] or short[] (nrm and tc may be null); idx is a triangle list. */
     public static native void g3dDraw(short[] dst, int[] i, float[] f, Object pos, Object nrm, byte[] col,
                                       Object tc, int[] idx, short[] tex, byte[] texAlpha);
+    public static final int G3D_FIG_COLORKEY = 1, G3D_FIG_TWO_SIDED = 0x10, G3D_FIG_LIGHTING = 0x20;
+    /**
+     * A Mascot Capsule figure (see g3d.h). tris: 9 ints each; opts: vertices, triangles,
+     * pattern mask, face, blending on, pass, reuse the last transform, texture w, h.
+     */
+    public static native void g3dFigure(short[] dst, int[] i, float[] pos, float[] nrm, float[] params,
+                                        int[] tris, int[] opts, short[] tex, byte[] texAlpha);
     /** zlib data to outLen bytes; null when it is damaged. */
     public static native byte[] inflate(byte[] src, int off, int len, int outLen);
 

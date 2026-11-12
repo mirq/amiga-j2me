@@ -282,6 +282,11 @@ static inline void shade_pixel(uint16_t *dp, uint16_t *zp, uint32_t z, int r, in
             switch (d->blend) {
             case G3D_BLEND_ALPHA: r = dr + (((r - dr) * a) >> 8); g = dg + (((g - dg) * a) >> 8); b = db + (((b - db) * a) >> 8); break;
             case G3D_BLEND_ALPHA_ADD: r = dr + ((r * a) >> 8); g = dg + ((g * a) >> 8); b = db + ((b * a) >> 8); break;
+            case G3D_BLEND_SUB: r = dr - ((r * a) >> 8); g = dg - ((g * a) >> 8); b = db - ((b * a) >> 8);
+                if (r < 0) r = 0;
+                if (g < 0) g = 0;
+                if (b < 0) b = 0;
+                break;
             case G3D_BLEND_MODULATE: r = (r * dr) >> 8; g = (g * dg) >> 8; b = (b * db) >> 8; break;
             default: r = (r * dr) >> 7; g = (g * dg) >> 7; b = (b * db) >> 7; break;
             }
@@ -394,11 +399,40 @@ static void tri(const SV *a, const SV *b, const SV *c)
     }
 }
 
+/* clips one triangle (poly[0..2], clip space) and draws what is left of it */
+static void draw_poly(const G3dDraw *d, Vtx *poly)
+{
+    Vtx tmp[12];
+    SV sv[12];
+    int k, n;
+    float ax, ay, bx, by, cx, cy, area;
+    int front;
+    n = clip_poly(poly, 3, tmp);
+    if (n < 3) return;
+    for (k = 0; k < n; k++) {
+        float iw = 1.0f / poly[k].w;
+        sv[k].x = s_vx + (poly[k].x * iw * 0.5f + 0.5f) * s_vw;
+        sv[k].y = s_vy + (0.5f - poly[k].y * iw * 0.5f) * s_vh;
+        sv[k].z = (poly[k].z * iw * 0.5f + 0.5f) * 65535.0f;
+        sv[k].f = poly[k].f;
+        sv[k].r = poly[k].r * 255.0f; sv[k].g = poly[k].g * 255.0f;
+        sv[k].b = poly[k].b * 255.0f; sv[k].a = poly[k].a * 255.0f;
+        if (d->flags & G3D_PERSPECTIVE) { sv[k].iw = iw; sv[k].uw = poly[k].u * iw; sv[k].vw = poly[k].v * iw; }
+        else { sv[k].iw = 1.0f; sv[k].uw = poly[k].u; sv[k].vw = poly[k].v; }
+    }
+    /* facing, from the screen-space winding (y grows downwards) */
+    ax = sv[0].x; ay = sv[0].y; bx = sv[1].x; by = sv[1].y; cx = sv[2].x; cy = sv[2].y;
+    area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+    front = (area < 0.0f) != ((d->flags & G3D_WINDING_CW) != 0);    /* counter-clockwise = front by default */
+    if ((d->flags & G3D_CULL_BACK) && !front) return;
+    if ((d->flags & G3D_CULL_FRONT) && front) return;
+    for (k = 1; k + 1 < n; k++) tri(&sv[0], &sv[k], &sv[k + 1]);
+}
+
 void g3d_draw(const G3dDraw *d)
 {
-    int i, k, n;
-    Vtx poly[12], tmp[12];
-    SV sv[12];
+    int i;
+    Vtx poly[12];
     if (!s_px || !s_z || d->vertex_count <= 0) return;
     if (d->vertex_count > s_vcap) {
         free(s_vtx);
@@ -410,8 +444,6 @@ void g3d_draw(const G3dDraw *d)
     transform_vertices(d);
     for (i = 0; i + 2 < d->idx_count; i += 3) {
         int i0 = d->idx[i], i1 = d->idx[i + 1], i2 = d->idx[i + 2];
-        float ax, ay, bx, by, cx, cy, area;
-        int front;
         if ((unsigned)i0 >= (unsigned)d->vertex_count || (unsigned)i1 >= (unsigned)d->vertex_count ||
             (unsigned)i2 >= (unsigned)d->vertex_count) continue;
         poly[0] = s_vtx[i0]; poly[1] = s_vtx[i1]; poly[2] = s_vtx[i2];
@@ -419,25 +451,104 @@ void g3d_draw(const G3dDraw *d)
             poly[0].r = poly[1].r = poly[2].r; poly[0].g = poly[1].g = poly[2].g;
             poly[0].b = poly[1].b = poly[2].b; poly[0].a = poly[1].a = poly[2].a;
         }
-        n = clip_poly(poly, 3, tmp);
-        if (n < 3) continue;
-        for (k = 0; k < n; k++) {
-            float iw = 1.0f / poly[k].w;
-            sv[k].x = s_vx + (poly[k].x * iw * 0.5f + 0.5f) * s_vw;
-            sv[k].y = s_vy + (0.5f - poly[k].y * iw * 0.5f) * s_vh;
-            sv[k].z = (poly[k].z * iw * 0.5f + 0.5f) * 65535.0f;
-            sv[k].f = poly[k].f;
-            sv[k].r = poly[k].r * 255.0f; sv[k].g = poly[k].g * 255.0f;
-            sv[k].b = poly[k].b * 255.0f; sv[k].a = poly[k].a * 255.0f;
-            if (d->flags & G3D_PERSPECTIVE) { sv[k].iw = iw; sv[k].uw = poly[k].u * iw; sv[k].vw = poly[k].v * iw; }
-            else { sv[k].iw = 1.0f; sv[k].uw = poly[k].u; sv[k].vw = poly[k].v; }
+        draw_poly(d, poly);
+    }
+}
+
+/* ---- Mascot Capsule figures ---- */
+
+static float *s_fig_light;
+static int s_fig_cap;
+
+void g3d_figure(const G3dFigure *f)
+{
+    const float *p = f->params;
+    G3dDraw d;
+    Vtx poly[12];
+    int i, t, persp = p[12] != 0.0f;
+    int lit_ok = f->nrm && p[19] >= 0.0f;
+    if (!s_px || !s_z || f->nverts <= 0 || s_vw <= 0 || s_vh <= 0) return;
+    if (f->nverts > s_vcap) {
+        free(s_vtx);
+        s_vtx = (Vtx *)malloc(sizeof(Vtx) * (size_t)f->nverts);
+        s_vcap = s_vtx ? f->nverts : 0;
+        if (!s_vtx) return;
+    }
+    if (f->nverts > s_fig_cap) {
+        free(s_fig_light);
+        s_fig_light = (float *)malloc(sizeof(float) * (size_t)f->nverts);
+        s_fig_cap = s_fig_light ? f->nverts : 0;
+        if (!s_fig_light) return;
+    }
+    if (!f->reuse) {
+        float iw = 1.0f / (float)s_vw, ih = 1.0f / (float)s_vh;
+        float kx = 2.0f * p[15] * iw - 1.0f, ky = 1.0f - 2.0f * p[16] * ih;
+        float fx = 2.0f * p[13] * iw, fy = 2.0f * p[14] * ih;
+        float zn = p[17], zf = p[18], zs = 0.0f, zt = 0.0f;
+        if (persp && zf > zn) { zs = (zf + zn) / (zf - zn); zt = -2.0f * zf * zn / (zf - zn); }
+        for (i = 0; i < f->nverts; i++) {
+            Vtx *o = &s_vtx[i];
+            float x = f->pos[i * 3], y = f->pos[i * 3 + 1], z = f->pos[i * 3 + 2];
+            float ex = p[0] * x + p[1] * y + p[2] * z + p[3];
+            float ey = p[4] * x + p[5] * y + p[6] * z + p[7];
+            float ez = p[8] * x + p[9] * y + p[10] * z + p[11];
+            if (persp) {
+                o->x = kx * ez + fx * ex; o->y = ky * ez - fy * ey;
+                o->z = zs * ez + zt; o->w = ez;
+            } else {
+                o->x = kx + fx * ex; o->y = ky - fy * ey;
+                o->z = ez * (1.0f / 65536.0f); o->w = 1.0f;
+            }
+            o->f = 1.0f;
+            if (lit_ok) {
+                float nx = f->nrm[i * 3], ny = f->nrm[i * 3 + 1], nz = f->nrm[i * 3 + 2];
+                float tx = p[0] * nx + p[1] * ny + p[2] * nz;
+                float ty = p[4] * nx + p[5] * ny + p[6] * nz;
+                float tz = p[8] * nx + p[9] * ny + p[10] * nz;
+                float len = (float)sqrt(tx * tx + ty * ty + tz * tz), l = 0.0f;
+                if (len > 0.0f) l = (tx * p[21] + ty * p[22] + tz * p[23]) / len;
+                if (l < 0.0f) l = 0.0f;
+                l = p[19] + p[20] * l;
+                if (l > 1.0f) l = 1.0f;
+                if (p[24] >= 0.0f) l = l < p[24] ? p[26] : p[25];
+                s_fig_light[i] = l;
+            }
         }
-        /* facing, from the screen-space winding (y grows downwards) */
-        ax = sv[0].x; ay = sv[0].y; bx = sv[1].x; by = sv[1].y; cx = sv[2].x; cy = sv[2].y;
-        area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
-        front = (area < 0.0f) != ((d->flags & G3D_WINDING_CW) != 0);    /* counter-clockwise = front by default */
-        if ((d->flags & G3D_CULL_BACK) && !front) continue;
-        if ((d->flags & G3D_CULL_FRONT) && front) continue;
-        for (k = 1; k + 1 < n; k++) tri(&sv[0], &sv[k], &sv[k + 1]);
+    }
+    memset(&d, 0, sizeof(d));
+    d.tw = f->tw; d.th = f->th;
+    d.tex_blend = G3D_TEX_MODULATE;
+    s_d = &d;
+    for (t = 0; t < f->ntris; t++) {
+        const int32_t *r = f->tris + t * G3D_FIG_INTS;
+        int flags = r[6], blend = f->blend_enabled ? (flags & G3D_FIG_BLEND_MASK) : 0;
+        int textured = r[8] >= 0, k;
+        if (r[8] != f->face || (r[7] & f->pattern_mask) != r[7]) continue;
+        if ((blend != 0) != (f->pass != 0)) continue;
+        if ((unsigned)r[0] >= (unsigned)f->nverts || (unsigned)r[1] >= (unsigned)f->nverts ||
+            (unsigned)r[2] >= (unsigned)f->nverts) continue;
+        if (textured && (!f->tex || f->tw <= 0 || f->th <= 0)) continue;
+        for (k = 0; k < 3; k++) {
+            Vtx *v = &poly[k];
+            float l = (lit_ok && (flags & G3D_FIG_LIGHTING)) ? s_fig_light[r[k]] : 1.0f;
+            *v = s_vtx[r[k]];
+            if (textured) {
+                v->r = v->g = v->b = l;
+                v->u = (float)(r[3 + k] & 0xFFFF); v->v = (float)((r[3 + k] >> 16) & 0xFFFF);
+            } else {
+                v->r = ((r[3] >> 16) & 255) * (1.0f / 255) * l;
+                v->g = ((r[3] >> 8) & 255) * (1.0f / 255) * l;
+                v->b = (r[3] & 255) * (1.0f / 255) * l;
+                v->u = v->v = 0.0f;
+            }
+            v->a = blend == 2 ? 0.5f : 1.0f;
+        }
+        d.tex = textured ? f->tex : NULL;
+        d.tex_alpha = (textured && (flags & G3D_FIG_COLORKEY)) ? f->tex_alpha : NULL;
+        d.alpha_threshold = d.tex_alpha ? 64 : 0;
+        d.blend = blend == 2 ? G3D_BLEND_ALPHA : (blend == 4 ? G3D_BLEND_ALPHA_ADD : (blend == 6 ? G3D_BLEND_SUB : G3D_BLEND_REPLACE));
+        d.flags = G3D_DEPTH_TEST | (blend ? 0 : G3D_DEPTH_WRITE) | ((textured && persp) ? G3D_PERSPECTIVE : 0)
+                | ((flags & G3D_FIG_TWO_SIDED) ? 0 : (G3D_CULL_BACK | G3D_WINDING_CW));
+        draw_poly(&d, poly);
     }
 }

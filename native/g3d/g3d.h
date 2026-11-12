@@ -25,7 +25,7 @@ extern "C" {
 #define G3D_COLOR_TRACK  0x0400   /* vertex colours replace the material's diffuse (and ambient) */
 #define G3D_NO_COLOR     0x0800   /* colour writes off (depth only) */
 
-enum { G3D_BLEND_REPLACE = 0, G3D_BLEND_ALPHA, G3D_BLEND_ALPHA_ADD, G3D_BLEND_MODULATE, G3D_BLEND_MODULATE_X2 };
+enum { G3D_BLEND_REPLACE = 0, G3D_BLEND_ALPHA, G3D_BLEND_ALPHA_ADD, G3D_BLEND_MODULATE, G3D_BLEND_MODULATE_X2, G3D_BLEND_SUB };
 enum { G3D_TEX_REPLACE = 0, G3D_TEX_MODULATE, G3D_TEX_DECAL, G3D_TEX_ADD, G3D_TEX_BLEND };
 enum { G3D_LIGHT_AMBIENT = 0, G3D_LIGHT_DIRECTIONAL, G3D_LIGHT_OMNI, G3D_LIGHT_SPOT };
 
@@ -54,6 +54,29 @@ typedef struct G3dDraw {
     uint32_t fog_color;
     float fog_a, fog_b;
 } G3dDraw;
+
+/* A Mascot Capsule figure: vertices already posed (floats, model space),
+ * triangles as records of G3D_FIG_INTS ints: 3 vertex indices, 3 x (u | v << 16)
+ * in texels (textured) or the 0xRRGGBB colour in the first of the three,
+ * flags, pattern bit, texture number (-1 = coloured). */
+#define G3D_FIG_INTS        9
+#define G3D_FIG_COLORKEY    0x01
+#define G3D_FIG_BLEND_MASK  0x06    /* 2 half, 4 add, 6 subtract */
+#define G3D_FIG_TWO_SIDED   0x10
+#define G3D_FIG_LIGHTING    0x20
+/* params: view 3x4 row-major (0..11), 12 = 1 for perspective, 13/14 = pixels per
+ * unit (at depth 1 when perspective), 15/16 = centre in the viewport, 17/18 = near/far,
+ * 19 = ambient (< 0: unlit), 20 = directional intensity, 21..23 = direction to
+ * the light in eye space, 24 = toon threshold (< 0: off), 25/26 = toon high/low */
+#define G3D_FIG_PARAMS      27
+typedef struct G3dFigure {
+    const float *pos, *nrm; int nverts;
+    const float *params;
+    const int32_t *tris; int ntris;
+    int pattern_mask, face, blend_enabled, pass, reuse;     /* pass 0: opaque, 1: blended */
+    const uint16_t *tex; const uint8_t *tex_alpha; int tw, th;
+} G3dFigure;
+void g3d_figure(const G3dFigure *f);
 
 /* Target surface and scissor (clip rectangle); allocates the depth buffer. 0 = ok. */
 int  g3d_bind(uint16_t *px, int w, int h, int clipx, int clipy, int clipw, int cliph);

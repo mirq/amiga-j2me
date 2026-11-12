@@ -41,12 +41,22 @@ screen mode; AHI for sound (optional).
   loader in Java, software rasteriser in C (`native/g3d`): lighting, textures
   with perspective correction, blending, depth buffer, sprites, skinning,
   morphing.
+- **Mascot Capsule micro3d v3** (`com.mascotcapsule.micro3d.v3`): own
+  implementation on the same rasteriser: MBAC figures (versions 2-5) with
+  bones, patterns and several textures, MTRA actions, BMP textures with a
+  colour key, lighting and toon shading, blending, primitives and command
+  lists. Tested with models made by `tools/make-test-mbac.py` only, not yet
+  with a commercial game; sphere-map reflections are left out.
+- **Vendor APIs**: Siemens (`com.siemens.mp.game`, `color_game`, `io.File`,
+  `ui`/`lcdui` Image), Samsung (`com.samsung.util`), Motorola
+  (`multimedia`, `funlight`, `midi`). Vibration and lights do nothing.
+- **Networking**: `socket://` and `http://` (HTTP/1.0) through
+  bsdsocket.library; the calls block. No https, datagrams or server sockets.
 - **Platform layer** (`hal/amiga`, from the author's civctp2 port): RTG screen,
   input, timers, AHI, a fast `malloc`.
 
-Not there yet: networking (`Connector.open` of http/socket fails), M3G fog,
-specular highlights, picking and the second texture unit, Siemens / Samsung /
-Motorola vendor APIs, Mascot Capsule 3D, a JAD reader, per-game settings.
+Not there yet: https, the Motorola `com.motorola.graphics.j3d` and iDEN 3D
+packages, Mascot Capsule sphere maps, per-game settings files.
 
 ## Build
 
