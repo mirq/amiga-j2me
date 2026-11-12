@@ -164,6 +164,13 @@ void hal_video_present(const uint16_t *pixels, int pitch, const HalRect *rects, 
 
 int hal_video_screenshot(const char *path) { (void)path; return -1; }
 
+/* ---- audio (AHI ring buffer, amiga_audio.c) ---- */
+
+int  hal_audio_open(void) { return amiga_audio_open(); }
+void hal_audio_close(void) { amiga_audio_close(); }
+void hal_audio_set_fill(HalAudioFill fill, void *user) { amiga_audio_set_fill(fill, user); }
+void hal_audio_update(void) { amiga_audio_update(); }
+
 /* ---- input ---- */
 
 int hal_poll_event(HalEvent *ev)

@@ -54,6 +54,21 @@ public final class Native {
     public static native void waitEvent(int ms);
     public static native int screenshot();
 
+    // ---- audio (native/audio): WAV and Standard MIDI Files ----
+    /** Returns a handle > 0, or 0 when the data is neither or there is no audio output. */
+    public static native int sndCreate(byte[] data, int off, int len);
+    public static native void sndClose(int h);
+    /** loops: times to play, -1 = forever; volume 0..100 */
+    public static native void sndPlay(int h, int loops, int volume);
+    public static native void sndStop(int h);
+    public static native void sndRewind(int h);
+    public static native void sndVolume(int h, int volume);
+    public static native int sndPlaying(int h);
+    public static native int sndDuration(int h);
+    public static native int sndPosition(int h);
+    /** Feeds the audio output; call every frame / event loop round. */
+    public static native void audioUpdate();
+
     /** Whole-file access (record stores). readFile returns null when there is no such file. */
     public static native byte[] readFile(String path);
     public static native int writeFile(String path, byte[] data, int len);

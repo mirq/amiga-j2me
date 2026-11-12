@@ -27,15 +27,6 @@
 # include "incls/_precompiled.incl"
 # include "incls/_ExecutionStackDesc.cpp.incl"
 
-#if defined(AMIGA_J2ME) && defined(__mc68000__) && !defined(AJ_NO_GC_WORKAROUND)
-// amiga-j2me: bebbo m68k-amigaos-gcc 6.5 at -O1 and above compiles the stack
-// relocation below into code that never returns (the first full, compacting
-// collection hung; found by bisecting with GcTest). Unoptimised it is right,
-// and it runs only once per stack per full collection.
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
-#endif
-
 ExecutionStackDesc* ExecutionStackDesc::_stack_list;  // used only by GC;
 
 void ExecutionStackDesc::relocate_all_pointers(int delta,
@@ -136,7 +127,3 @@ void ExecutionStackDesc::update_list(ExecutionStackDesc* old_stack,
   
   GUARANTEE(new_stack->_next_stack == old_stack_next, "must be updated");
 }
-
-#if defined(AMIGA_J2ME) && defined(__mc68000__) && !defined(AJ_NO_GC_WORKAROUND)
-#pragma GCC pop_options
-#endif

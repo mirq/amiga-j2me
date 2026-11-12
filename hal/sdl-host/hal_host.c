@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 int hal_init(int argc, char **argv) { (void)argc; (void)argv; return 0; }
-void hal_shutdown(void) {}
+void hal_shutdown(void) { hal_audio_close(); }
 const char *hal_platform_name(void) { return "host"; }
 
 void hal_log(const char *fmt, ...)
@@ -188,3 +188,54 @@ int hal_poll_event(HalEvent *ev)
 }
 
 void hal_wait_event(uint32_t timeout_ms) { hal_sleep_ms(timeout_ms > 5 ? 5 : timeout_ms); }
+
+/* ---- audio: no device; with AJ_WAV=file the output is written as a WAV ---- */
+#define HOST_AUDIO_RATE 22050
+static FILE *s_wav;
+static uint32_t s_wav_frames;
+static HalAudioFill s_fill;
+static void *s_fill_user;
+static uint64_t s_audio_t0;
+
+static void wav_header(FILE *f, uint32_t frames)
+{
+    uint32_t bytes = frames * 4, v;
+    uint16_t w;
+    fseek(f, 0, SEEK_SET);
+    fwrite("RIFF", 1, 4, f); v = 36 + bytes; fwrite(&v, 4, 1, f);
+    fwrite("WAVEfmt ", 1, 8, f); v = 16; fwrite(&v, 4, 1, f);
+    w = 1; fwrite(&w, 2, 1, f); w = 2; fwrite(&w, 2, 1, f);
+    v = HOST_AUDIO_RATE; fwrite(&v, 4, 1, f); v = HOST_AUDIO_RATE * 4; fwrite(&v, 4, 1, f);
+    w = 4; fwrite(&w, 2, 1, f); w = 16; fwrite(&w, 2, 1, f);
+    fwrite("data", 1, 4, f); fwrite(&bytes, 4, 1, f);
+}
+
+int hal_audio_open(void)
+{
+    const char *path = getenv("AJ_WAV");
+    if (!s_wav && path && (s_wav = fopen(path, "wb")) != NULL) wav_header(s_wav, 0);
+    s_audio_t0 = hal_monotonic_micros();
+    s_wav_frames = 0;
+    return HOST_AUDIO_RATE;
+}
+
+void hal_audio_close(void)
+{
+    if (s_wav) { wav_header(s_wav, s_wav_frames); fclose(s_wav); s_wav = NULL; }
+}
+
+void hal_audio_set_fill(HalAudioFill fill, void *user) { s_fill = fill; s_fill_user = user; }
+
+void hal_audio_update(void)
+{
+    int16_t buf[512 * 2];
+    uint32_t due;
+    if (!s_fill) return;
+    due = (uint32_t)((hal_monotonic_micros() - s_audio_t0) * HOST_AUDIO_RATE / 1000000u);
+    while (s_wav_frames < due) {
+        int n = (int)(due - s_wav_frames > 512 ? 512 : due - s_wav_frames);
+        s_fill(buf, n, s_fill_user);
+        if (s_wav) fwrite(buf, 4, (size_t)n, s_wav);
+        s_wav_frames += (uint32_t)n;
+    }
+}

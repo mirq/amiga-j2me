@@ -43,6 +43,8 @@ set(VM_SRC
   # the runtime's own natives (aj.Native) and what they are built on
   ${CMAKE_SOURCE_DIR}/native/kni/natives_gfx.c
   ${CMAKE_SOURCE_DIR}/native/kni/natives_io.c
+  ${CMAKE_SOURCE_DIR}/native/kni/natives_audio.c
+  ${CMAKE_SOURCE_DIR}/native/audio/audio.c
   ${CMAKE_SOURCE_DIR}/native/gfx/gfx.c
   ${CMAKE_SOURCE_DIR}/native/gfx/gfx_decode.c
   ${CMAKE_SOURCE_DIR}/native/gfx/fontdata.c
@@ -67,7 +69,7 @@ set(VM_INC ${VMGEN}/generated
   ${PM}/vm/share/reflection ${PM}/vm/share/ROM ${PM}/vm/share/runtime
   ${PM}/vm/share/utilities ${PM}/vm/share/verifier)
 target_include_directories(cldcvm PRIVATE ${VM_INC}
-  ${CMAKE_SOURCE_DIR}/native/gfx ${CMAKE_SOURCE_DIR}/third_party/stb)
+  ${CMAKE_SOURCE_DIR}/native/gfx ${CMAKE_SOURCE_DIR}/native/audio ${CMAKE_SOURCE_DIR}/third_party/stb)
 target_include_directories(cldcvm PUBLIC ${PM}/vm/share/natives ${PM}/vm/share/runtime)
 
 if(AJ_TARGET STREQUAL "host")

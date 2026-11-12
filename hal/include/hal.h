@@ -55,6 +55,16 @@ void hal_video_present(const uint16_t *pixels, int pitch, const HalRect *rects, 
 /* Host only: writes the last presented picture as a PPM file. 0 = ok. */
 int  hal_video_screenshot(const char *path);
 
+/* ---- audio: 16-bit stereo, pulled from a fill callback ---- */
+typedef void (*HalAudioFill)(int16_t *stereo, int frames, void *user);
+/* Opens the output. Returns its rate in Hz, or 0 when there is none. */
+int  hal_audio_open(void);
+void hal_audio_close(void);
+void hal_audio_set_fill(HalAudioFill fill, void *user);
+/* Call often (every frame / event loop round): asks the callback for what
+ * the output needs next. */
+void hal_audio_update(void);
+
 /* ---- input ---- */
 enum { HAL_EV_NONE = 0, HAL_EV_KEY, HAL_EV_POINTER, HAL_EV_POINTER_MOVE, HAL_EV_QUIT };
 

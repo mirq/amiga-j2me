@@ -175,6 +175,7 @@ public class Display {
             Native.present(buffer.pix, buffer.w, buffer.h, x, y, w, h);
         }
         pump();
+        Native.audioUpdate();
     }
 
     void paintSoftBar(Graphics gr, Displayable d) {
@@ -312,6 +313,8 @@ public class Display {
     public boolean runOnce() {
         boolean busy = false;
         pump();
+        Native.audioUpdate();
+        aj.media.BasicPlayer.pollAll();
         for (;;) {
             int kind, a, b;
             Displayable d;
