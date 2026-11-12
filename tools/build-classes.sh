@@ -9,7 +9,14 @@ CLDC=$GEN/dist/lib/cldc_classes.zip
 [ -f $CLDC ] || { echo "run tools/gen-vm-amiga.sh first"; exit 1; }
 OUT=build/api
 rm -rf $OUT/tmp $OUT/classes; mkdir -p $OUT/tmp $OUT/classes
-find java/src -name '*.java' > $OUT/sources.txt
+# com.siemens.mp.color_game is the MIDP 2 game API under another package name
+G=$OUT/gen/com/siemens/mp/color_game
+rm -rf $OUT/gen; mkdir -p $G
+for f in java/src/javax/microedition/lcdui/game/*.java; do
+  sed -e 's/^package javax\.microedition\.lcdui\.game;/package com.siemens.mp.color_game;/' \
+      -e 's/javax\.microedition\.lcdui\.game\./com.siemens.mp.color_game./g' $f > $G/$(basename $f)
+done
+find java/src $OUT/gen -name '*.java' > $OUT/sources.txt
 java -jar tools/ecj-4.6.1.jar -source 1.4 -target 1.4 -nowarn -bootclasspath $CLDC \
      -d $OUT/tmp @$OUT/sources.txt
 $GEN/dist/bin/preverify -classpath $CLDC -d $OUT/classes $OUT/tmp

@@ -18,6 +18,11 @@ public final class GameAccess {
         if (d != null) d.presentBuffer(buffer, x, y, w, h);
     }
 
+    public static void blit(Image img, int x, int y) {
+        Display d = Display.instance;
+        if (d != null) d.blit(img, x, y);
+    }
+
     /** Pixel-level collision: is the image's pixel fully or partly opaque? */
     public static boolean isOpaque(Image img, int x, int y) {
         if (x < 0 || y < 0 || x >= img.w || y >= img.h) return false;

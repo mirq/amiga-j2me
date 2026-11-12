@@ -172,6 +172,15 @@ public class Display {
     }
 
     /** GameCanvas.flushGraphics: the canvas' own buffer goes straight to the display. */
+    /** Draws an image straight onto the screen (Siemens ExtendedImage.blitToScreen). */
+    void blit(Image img, int x, int y) {
+        synchronized (PAINT_LOCK) {
+            g.reset(0, 0, width, height);
+            g.drawImage(img, x, y, Graphics.TOP | Graphics.LEFT);
+            Native.present(screen.pix, width, height, x, y, img.w, img.h);
+        }
+    }
+
     void presentBuffer(Image buffer, int x, int y, int w, int h) {
         synchronized (PAINT_LOCK) {
             Native.present(buffer.pix, buffer.w, buffer.h, x, y, w, h);
