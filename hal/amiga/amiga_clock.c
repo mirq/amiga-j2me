@@ -72,7 +72,10 @@ static void waker_stop(void)
 int amiga_clock_init(void)
 {
 	s_base = now_us();
-	waker_start();
+	/* Only under UAE (its boot ROM leaves "uae.resource"): on a real board the
+	 * waker interrupts every long 68k call 500 times a second for nothing (a TLS
+	 * handshake in AmiSSL took 14 s instead of a few). */
+	if (OpenResource((CONST_STRPTR)"uae.resource")) waker_start();
 	return 1;
 }
 

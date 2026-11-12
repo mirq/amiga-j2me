@@ -146,6 +146,11 @@ KNIEXPORT KNI_RETURNTYPE_INT Java_aj_Native_probe(void)
         extern void *aj_probe_alloc(unsigned long size, unsigned long flags);
         KNI_ReturnInt((jint)(size_t)aj_probe_alloc(what == 29 ? 9000000 : 70000, fl[what - 20 > 8 ? 0 : what - 20]));
 #endif
+#if defined(WOS)
+    } else if (what == 30 || what == 31) {
+        extern int aj_probe_coherency(int flush);
+        KNI_ReturnInt(aj_probe_coherency(what == 31));
+#endif
     } else if (what == 10) { KNI_ReturnInt((jint)(size_t)&pr_a);
     } else if (what == 11) { KNI_ReturnInt((jint)(size_t)&Java_aj_Native_probe);
     } else if (what == 12) { volatile int on_stack = 0; KNI_ReturnInt((jint)(size_t)&on_stack);

@@ -256,3 +256,27 @@ void *aj_probe_alloc(unsigned long size, unsigned long flags)
     if (m) FreeMem(m, size);
     return m;
 }
+
+#if defined(AJ_AMIGA_WOS)
+/* diagnostics, real PowerPC cards: do the PPC and the 68k see each other's
+ * writes right after a call? exec's CopyMem runs on the 68k. Returns
+ * (mismatches seen by the PPC after the 68k wrote) * 1000 + (mismatches in what
+ * the 68k read after the PPC wrote), over 200 rounds; flush != 0 uses dcbf on
+ * the buffers before each call, as the audio and input code do. */
+int aj_probe_coherency(int flush)
+{
+    static unsigned char a[1024], b[1024], c[1024];
+    int round, i, bad_in = 0, bad_out = 0;
+    for (round = 0; round < 200; round++) {
+        for (i = 0; i < 1024; i++) a[i] = (unsigned char)(i * 7 + round * 13);    /* the PPC writes a */
+        if (flush) { amiga_cache_flush(a, sizeof(a)); amiga_cache_flush(b, sizeof(b)); }
+        CopyMem(a, b, sizeof(a));                                                 /* the 68k copies a to b */
+        for (i = 0; i < 1024; i++) if (b[i] != (unsigned char)(i * 7 + round * 13)) { bad_in++; break; }
+        /* and once more through the 68k alone: c is what the 68k has in b */
+        if (flush) { amiga_cache_flush(b, sizeof(b)); amiga_cache_flush(c, sizeof(c)); }
+        CopyMem(b, c, sizeof(b));
+        for (i = 0; i < 1024; i++) if (c[i] != (unsigned char)(i * 7 + round * 13)) { bad_out++; break; }
+    }
+    return bad_in * 1000 + bad_out;
+}
+#endif
