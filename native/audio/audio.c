@@ -10,7 +10,7 @@
 
 enum { SND_FREE = 0, SND_PCM, SND_MIDI };
 
-typedef struct { uint32_t tick; uint8_t status, d1, d2; uint32_t tempo; } MidiEvent;
+typedef struct { uint32_t tick; uint32_t seq; uint8_t status, d1, d2; uint32_t tempo; } MidiEvent;
 
 typedef struct {
     int      active, chan, note, drum;
@@ -97,11 +97,13 @@ static int load_wav(Sound *s, const uint8_t *d, int len)
 
 static uint32_t be32(const uint8_t *p) { return ((uint32_t)p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
 
+/* by tick, then in file order (seq): a total order, as qsort needs */
 static int cmp_ev(const void *a, const void *b)
 {
     const MidiEvent *x = (const MidiEvent *)a, *y = (const MidiEvent *)b;
     if (x->tick != y->tick) return x->tick < y->tick ? -1 : 1;
-    return (x < y) ? -1 : 1;        /* stable enough: keep file order */
+    if (x->seq != y->seq) return x->seq < y->seq ? -1 : 1;
+    return 0;
 }
 
 static int add_ev(Sound *s, int *cap, uint32_t tick, int status, int d1, int d2, uint32_t tempo)
@@ -113,7 +115,8 @@ static int add_ev(Sound *s, int *cap, uint32_t tick, int status, int d1, int d2,
         if (!n) return 0;
         s->ev = n; *cap = nc;
     }
-    e = &s->ev[s->nev++];
+    e = &s->ev[s->nev];
+    e->seq = (uint32_t)s->nev++;
     e->tick = tick; e->status = (uint8_t)status; e->d1 = (uint8_t)d1; e->d2 = (uint8_t)d2; e->tempo = tempo;
     return 1;
 }
@@ -164,7 +167,7 @@ static int load_midi(Sound *s, const uint8_t *d, int len)
         pos = end;
     }
     if (s->nev == 0) { free(s->ev); s->ev = NULL; return 0; }
-    /* tracks are merged by tick; qsort on (tick, address) keeps their order */
+    /* tracks are merged by tick, keeping their order */
     qsort(s->ev, (size_t)s->nev, sizeof(MidiEvent), cmp_ev);
     for (i = 0; i < s->nev; i++) {
         us += (uint64_t)(s->ev[i].tick - last_tick) * tempo / (uint32_t)s->division;
