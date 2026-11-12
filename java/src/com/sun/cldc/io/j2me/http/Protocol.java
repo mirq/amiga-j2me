@@ -132,6 +132,8 @@ public class Protocol implements ConnectionBaseInterface, HttpConnection {
         for (int i = 0; i < reqKeys.size(); i++) {
             rq.append((String) reqKeys.elementAt(i)).append(": ").append((String) reqValues.elementAt(i)).append("\r\n");
         }
+        // what a MIDP phone sends when the game sets none; some servers refuse requests without one
+        if (find(reqKeys, "User-Agent") < 0) rq.append("User-Agent: Profile/MIDP-2.0 Configuration/CLDC-1.1\r\n");
         rq.append("Connection: close\r\n\r\n");
         out.write(rq.toString().getBytes());
         if (data != null) out.write(data);

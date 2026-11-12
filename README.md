@@ -120,6 +120,21 @@ sound. `VmTest` prints checksums that must be the same on every target.
 - On WarpOS every 68k call from the PPC is expensive, and in Amiberry a PPC
   task that waits for one can stall without the "waker" task in
   `hal/amiga/amiga_clock.c`.
+- PPC cards run by the Sonnet `powerpc.library` (Mediator/Prometheus PCI):
+  its loader takes any program whose file holds the bytes `RACE`,
+  `powerpc.library` or `AmigaAMP` for a PowerPC one, remembers that in the
+  file's protection bits 16/17, and from then on gives the program "ppc
+  memory" for its hunks and for every `AllocMem`. A 68060 reaches that memory
+  many times more slowly: the 68k VM ran 27 times slower on a real A4000
+  because of names like `AJ_TLS_TRACE` in its strings. `tools/dist.sh` stops
+  if the 68k program holds one of the three (`tools/check-68k-classifier.py`).
+  A file that was once marked stays marked when it is overwritten: copy the
+  new one under a new name, or clear the bits.
+- For the same reason a WarpOS program's own 68k side, and any process it
+  creates, allocates from ppc memory. AmiSSL run that way needed 14 s for a
+  TLS handshake; so on such a card the WarpOS build has AmiSSL run by a 68k
+  helper process that is started from a plain exec task placed in Fast RAM
+  (`hal/amiga/stub/tls68k.s`), and the handshake takes 1.9 s.
 
 ## Licence
 

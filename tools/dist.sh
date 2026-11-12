@@ -32,6 +32,7 @@ if [ -f build/aos3-m68k-rel/vm/j2me ]; then
   /opt/amiga/bin/m68k-amigaos-strip -o dist/aos3-68060/j2me.strip build/aos3-m68k-rel/vm/j2me
   python3 tools/hunkmerge.py dist/aos3-68060/j2me.strip dist/aos3-68060/j2me
   rm -f dist/aos3-68060/j2me.strip
+  tools/check-68k-classifier.py dist/aos3-68060/j2me   # or a Sonnet PPC card treats it as a PowerPC program
   cp build/api/aj_classes.zip dist/aos3-68060/; readme dist/aos3-68060
 fi
 if [ -f build/wos-ppc/vm/j2me ]; then

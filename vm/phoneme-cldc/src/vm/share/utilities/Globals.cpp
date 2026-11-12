@@ -318,6 +318,11 @@ __PR(st, "AZZERT");
   _IS_DISABLED;
 #endif
 
+#ifdef AJ_LIST_BUILD_FLAGS
+  // amiga-j2me: left out. The flag names would put the bytes "RACE" (..._TRACE)
+  // into the program, and the Sonnet powerpc.library takes any program that
+  // holds them for a PowerPC one: a 68k program then gets "ppc memory" for
+  // everything and runs many times slower (see tools/check-68k-classifier.py).
   {
     // ENABLE_FLAG_VALUES is defined in the auto-generated jvmconfig.h
     static const char* enable_flag_values[] = ENABLE_FLAG_VALUES;
@@ -327,6 +332,7 @@ __PR(st, "AZZERT");
       st->print_cr("  %-40s %s", name, value);
     }
   }
+#endif
 
 __PR(st, "HARDWARE_LITTLE_ENDIAN");
 #if  HARDWARE_LITTLE_ENDIAN

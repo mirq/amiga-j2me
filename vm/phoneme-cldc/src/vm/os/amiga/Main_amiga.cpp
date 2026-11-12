@@ -9,10 +9,10 @@
 #include <setjmp.h>
 #include <stdlib.h>
 
-/* Startup trace: "setenv AJ_TRACE 1" (porting aid, see AJ_TRACE() uses). */
+/* Startup trace: "setenv AJ_STARTLOG 1" (porting aid, see AJ_TRACE() uses). */
 extern "C" void aj_trace(const char *what) {
   static int on = -1;
-  if (on < 0) { const char *e = getenv("AJ_TRACE"); on = (e && *e == '1'); }
+  if (on < 0) { const char *e = getenv("AJ_STARTLOG"); on = (e && *e == '1'); }
   if (on) { hal_log("[aj] %s\n", what); }
 }
 
