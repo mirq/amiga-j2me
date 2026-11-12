@@ -39,6 +39,9 @@ public class Mesh extends Node {
     public VertexBuffer getVertexBuffer() { return vertices; }
     public int getSubmeshCount() { return submeshes.length; }
 
+    /** The vertices to draw: the deformed ones for morphing and skinned meshes. */
+    VertexBuffer renderVertices() { return vertices; }
+
     void collectReferences(Vector out) {
         add(out, vertices);
         for (int i = 0; i < submeshes.length; i++) { add(out, submeshes[i]); add(out, appearances[i]); }

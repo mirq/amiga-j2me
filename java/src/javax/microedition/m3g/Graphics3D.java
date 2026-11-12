@@ -13,8 +13,7 @@ import javax.microedition.lcdui.Graphics;
 /**
  * The renderer. The scene graph, animation and state live in Java; transform,
  * lighting, clipping and rasterising of each submesh are one native call.
- * Not drawn: fog, specular highlights, the second texture unit, skinning,
- * morphing, depth offset.
+ * Not drawn: fog, specular highlights, the second texture unit, depth offset.
  */
 public class Graphics3D {
     public static final int ANTIALIAS = 2, DITHER = 4, TRUE_COLOR = 8, OVERWRITE = 16;
@@ -396,6 +395,7 @@ public class Graphics3D {
     private static final class Item {
         Node node;
         int submesh;
+        VertexBuffer vertices;
         Transform toWorld;
         float alpha;
         int layer;
@@ -409,6 +409,14 @@ public class Graphics3D {
             if (lightSink != null) lightSink.addLight((Light) node, toWorld);
         } else if (node instanceof Mesh) {
             Mesh m = (Mesh) node;
+            if (m instanceof SkinnedMesh) {         // what hangs off the bones is drawn too
+                Group sk = ((SkinnedMesh) m).getSkeleton();
+                Transform st = new Transform();
+                sk.getCompositeTransform(st);
+                Transform t = new Transform(toWorld);
+                t.postMultiply(st);
+                gather(sk, t, alpha, items, lightSink);
+            }
             for (int i = 0; i < m.submeshes.length; i++) {
                 Appearance ap = m.appearances[i];
                 if (ap == null) continue;
@@ -453,7 +461,9 @@ public class Graphics3D {
             Item it = (Item) items.elementAt(i);
             if (it.node instanceof Mesh) {
                 Mesh m = (Mesh) it.node;
-                draw(m.vertices, m.submeshes[it.submesh], m.appearances[it.submesh], it.toWorld.m, it.alpha);
+                // deformed vertices are computed once per mesh, at its first submesh
+                if (it.submesh == 0 || it.vertices == null) it.vertices = m.renderVertices();
+                draw(it.vertices, m.submeshes[it.submesh], m.appearances[it.submesh], it.toWorld.m, it.alpha);
             } else {
                 drawSprite((Sprite3D) it.node, it.toWorld);
             }
