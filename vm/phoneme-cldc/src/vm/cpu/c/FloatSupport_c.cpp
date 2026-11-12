@@ -234,6 +234,24 @@ extern "C" {
   
   jdouble jvm_l2d(jlong x)                       { return (jdouble)x; }
 
+#if AMIGA_J2ME
+  /* amiga-j2me: (jlong)x goes to the C library's __fixsfdi/__fixdfdi, and the
+   * m68k one rounds to nearest ((long)3.75f was 4). Java truncates: take the
+   * number apart instead. Only called with |x| < 2^63 and not NaN. */
+  static jlong aj_trunc_to_long(jdouble x) {
+    jlong bits = double_bits(x);
+    int e = (int)((bits >> 52) & 0x7FF) - 1023;
+    julong m = ((julong)bits & JVM_ULL(0x000FFFFFFFFFFFFF)) | JVM_ULL(0x0010000000000000);
+    jlong r;
+    if (e < 0) return 0;
+    r = (jlong)(e >= 52 ? m << (e - 52) : m >> (52 - e));
+    return bits < 0 ? -r : r;
+  }
+#define AJ_TRUNC_TO_LONG(x) aj_trunc_to_long((jdouble)(x))
+#else
+#define AJ_TRUNC_TO_LONG(x) ((jlong)(x))
+#endif
+
   jint    jvm_f2i(jfloat x)                      { 
     jint rv, bits = float_bits(x);
     
@@ -275,7 +293,7 @@ extern "C" {
 	rv = 0;
       }
     } else {
-      rv = (jlong)x;
+      rv = AJ_TRUNC_TO_LONG(x);
     }
     return rv; 
   }
@@ -307,7 +325,7 @@ extern "C" {
 	rv = 0;
       }
     } else {
-      rv = (jlong)x;
+      rv = AJ_TRUNC_TO_LONG(x);
     }
     return rv; 
   }
