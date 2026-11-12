@@ -8,6 +8,7 @@
  * kind of descriptor the platform's socket layer hands out.
  * When AmiSSL is not installed, hal_tls_open fails and says so in the log. */
 #include "hal.h"
+#include "amiga_os.h"
 #include <exec/types.h>
 #include <exec/libraries.h>
 #include <utility/tagitem.h>
@@ -30,6 +31,12 @@
 #endif
 #define AJ_CALL(m, ...) AJ_CALL2(m, (__VA_ARGS__ AJ_X))
 #define AJ_CALL2(m, args) m args
+
+/* On a real PowerPC card the two CPUs have their own data caches. Before the
+ * 68k (AmiSSL) reads memory the PPC wrote, or writes memory the PPC will read,
+ * the PPC's copy of those lines has to go: written back and dropped. A no-op
+ * on the 68060 and under MorphOS. */
+#define SHARE(p, n) amiga_cache_flush((p), (unsigned long)(n))
 
 extern struct Library *SocketBase;
 static struct Library *s_master, *s_ssl;
@@ -85,6 +92,7 @@ static void log_ssl_error(const char *what)
     char msg[160];
     unsigned long e = ERR_get_error();
     msg[0] = 0;
+    SHARE(msg, sizeof(msg));
     if (e) ERR_error_string_n(e, msg, sizeof(msg));
     hal_log("TLS: %s%s%s\n", what, msg[0] ? ": " : "", msg);
     while (ERR_get_error()) {}
@@ -107,6 +115,7 @@ static int tls_init(void)
     tags[0].ti_Tag = AmiSSL_ErrNoPtr; tags[0].ti_Data = (ULONG)&s_errno;
     tags[1].ti_Tag = AmiSSL_SocketBase; tags[1].ti_Data = (ULONG)SocketBase;
     tags[2].ti_Tag = TAG_DONE; tags[2].ti_Data = 0;
+    SHARE(tags, sizeof(tags)); SHARE(&s_errno, sizeof(s_errno));
     if (InitAmiSSLA(tags) != 0) {
         hal_log("TLS: AmiSSL did not start\n");
         CloseAmiSSL(); CloseLibrary(s_master); s_master = NULL; s_ssl = NULL;
@@ -132,6 +141,7 @@ void hal_tls_shutdown(void)
     if (s_ctx) { SSL_CTX_free(s_ctx); s_ctx = NULL; }
     if (s_ssl) {
         struct TagItem done; done.ti_Tag = TAG_DONE; done.ti_Data = 0;
+        SHARE(&done, sizeof(done));
         CleanupAmiSSLA(&done);
         CloseAmiSSL(); s_ssl = NULL;
     }
@@ -143,7 +153,9 @@ static int flush_out(Tls *t)
 {
     char buf[1024];
     while (BIO_ctrl(t->wbio, BIO_CTRL_PENDING, 0, NULL) > 0) {
-        int n = BIO_read(t->wbio, buf, sizeof(buf)), off = 0;
+        int n, off = 0;
+        SHARE(buf, sizeof(buf));
+        n = BIO_read(t->wbio, buf, sizeof(buf));
         if (n <= 0) break;
         while (off < n) {
             int w = hal_net_write(t->sock, buf + off, n - off);
@@ -160,6 +172,7 @@ static int feed_in(Tls *t)
     char buf[1024];
     int n = hal_net_read(t->sock, buf, sizeof(buf));
     if (n <= 0) return 0;
+    SHARE(buf, n);
     return BIO_write(t->rbio, buf, n) == n;
 }
 
@@ -183,6 +196,7 @@ int hal_tls_open(const char *host, int port)
         return -1;
     }
     SSL_set_bio(t->ssl, t->rbio, t->wbio);      /* the SSL owns them now */
+    SHARE(host, strlen(host) + 1);
     SSL_ctrl(t->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME, 0, (APTR)host);
     SSL_set1_host(t->ssl, (APTR)host);
     for (;;) {
@@ -207,7 +221,9 @@ int hal_tls_read(int handle, void *buf, int len)
     if ((unsigned)handle >= MAX_TLS || !s_tls[handle].used) return -1;
     t = &s_tls[handle];
     for (;;) {
-        int n = SSL_read(t->ssl, buf, len), err;
+        int n, err;
+        SHARE(buf, len);
+        n = SSL_read(t->ssl, buf, len);
         if (n > 0) return n;
         err = SSL_get_error(t->ssl, n);
         if (!flush_out(t)) return -1;
@@ -223,6 +239,7 @@ int hal_tls_write(int handle, const void *buf, int len)
     int n;
     if ((unsigned)handle >= MAX_TLS || !s_tls[handle].used) return -1;
     t = &s_tls[handle];
+    SHARE(buf, len);
     n = SSL_write(t->ssl, (APTR)buf, len);
     if (n <= 0) {
         int err = SSL_get_error(t->ssl, n);
