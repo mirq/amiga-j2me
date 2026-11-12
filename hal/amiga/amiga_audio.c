@@ -142,6 +142,25 @@ int amiga_audio_open(void)
 	}
 	if (!s_ctrl)
 	{
+		/* no default mode in the AHI preferences: take the mode AHI thinks best */
+		struct TagItem any[] = { { AHIDB_Stereo, TRUE }, { TAG_DONE, 0 } };
+		ULONG id = AHI_BestAudioIDA(any);
+		if (id != AHI_INVALID_ID)
+		{
+			struct TagItem tags[] =
+			{
+				{ AHIA_AudioID,  id },
+				{ AHIA_MixFreq,  (ULONG)s_rate },
+				{ AHIA_Channels, 1 },
+				{ AHIA_Sounds,   1 },
+				{ TAG_DONE,      0 }
+			};
+			s_ctrl = AHI_AllocAudioA(tags);
+			if (s_ctrl) amiga_log("Sound: no default AHI mode set, using mode $%08lx\n", (unsigned long)id);
+		}
+	}
+	if (!s_ctrl)
+	{
 		amiga_log("Sound: AHI_AllocAudio failed (is a default mode set in AHI prefs?)\n");
 		goto fail;
 	}
