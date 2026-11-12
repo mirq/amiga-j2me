@@ -58,6 +58,9 @@ static int s_stack_rc;
 int __attribute__((noinline)) hal_run_with_stack(int (*fn)(void), size_t size)
 {
     void *mem;
+    char env[8];
+    /* diagnostics: AJ_NOFASTSTACK keeps the stack libnix set up */
+    if (GetVar((CONST_STRPTR)"AJ_NOFASTSTACK", (STRPTR)env, sizeof(env), GVF_GLOBAL_ONLY) > 0) return fn();
     size = (size + 15) & ~(size_t)15;
     mem = AllocMem(size, MEMF_FAST);
     if (!mem) return fn();              /* no Fast RAM: stay on the stack we have */

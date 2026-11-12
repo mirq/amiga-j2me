@@ -73,9 +73,10 @@
  * turned into one for "ppc memory" on a machine with WarpOS, which a 68060
  * reaches many times more slowly (seen on a real A4000: the VM ran 25 times
  * slower). Without Fast RAM, anything will do. */
+int aj_no_fast_mem;        /* diagnostics: set from the AJ_NOFASTMEM variable, takes what exec gives */
 static void *sys_alloc(unsigned long n)
 {
-    void *m = AllocMem(n, MEMF_FAST);
+    void *m = aj_no_fast_mem ? NULL : AllocMem(n, MEMF_FAST);
     return m ? m : AllocMem(n, MEMF_ANY);
 }
 #define SYS_ALLOC(n)    sys_alloc(n)
@@ -201,7 +202,14 @@ static void *allocate(size_t size)
 
 void *malloc(size_t size)
 {
+#ifdef AJ_MALLOC_POISON
+	/* test builds: fresh blocks hold junk, as on a machine whose memory has been used */
+	void *p = allocate(size);
+	if (p) memset(p, 0xA5, size);
+	return p;
+#else
 	return allocate(size);
+#endif
 }
 
 void free(void *ptr)
