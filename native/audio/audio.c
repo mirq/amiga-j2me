@@ -111,7 +111,9 @@ static int add_ev(Sound *s, int *cap, uint32_t tick, int status, int d1, int d2,
     MidiEvent *e;
     if (s->nev == *cap) {
         int nc = *cap ? *cap * 2 : 512;
-        MidiEvent *n = (MidiEvent *)realloc(s->ev, (size_t)nc * sizeof(MidiEvent));
+        /* no realloc(NULL, ...): not every C library on these systems takes it */
+        MidiEvent *n = (MidiEvent *)malloc((size_t)nc * sizeof(MidiEvent));
+        if (n && s->ev) { memcpy(n, s->ev, (size_t)s->nev * sizeof(MidiEvent)); free(s->ev); }
         if (!n) return 0;
         s->ev = n; *cap = nc;
     }

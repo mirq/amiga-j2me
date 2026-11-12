@@ -22,6 +22,7 @@ static struct Window * s_window;
 static UWORD *         s_blankPointer;     /* chip memory, for SetPointer */
 static int             s_width;            /* the game's picture */
 static int             s_height;
+static unsigned        s_presents;         /* pictures shown since the screen opened */
 static int             s_ox;               /* where it sits on the screen */
 static int             s_oy;
 static ULONG           s_pixfmt;
@@ -212,7 +213,7 @@ int amiga_video_open(int width, int height)
 			{ SA_ShowTitle, FALSE },
 			{ SA_Draggable, FALSE },
 			{ SA_Type,      CUSTOMSCREEN },
-			{ SA_Title,     (ULONG)"Call to Power II" },
+			{ SA_Title,     (ULONG)"amiga-j2me" },
 			{ TAG_DONE,     0 }
 		};
 		s_screen = OpenScreenTagList(NULL, tags);
@@ -238,9 +239,13 @@ int amiga_video_open(int width, int height)
 			{ WA_ReportMouse,  TRUE },
 			{ WA_SimpleRefresh,TRUE },
 			{ WA_NoCareRefresh,TRUE },
+			{ WA_BackFill,     (ULONG)LAYERS_NOBACKFILL },   /* Intuition must not wipe what we draw */
 			{ WA_IDCMP,        IDCMP_RAWKEY | IDCMP_MOUSEBUTTONS | IDCMP_MOUSEMOVE },
 			{ TAG_DONE,        0 }
 		};
+		/* pen 0 is what Intuition wipes the backdrop window with (grey by
+		 * default on MorphOS): make it black before the window opens */
+		SetRGB32(&s_screen->ViewPort, 0, 0, 0, 0);
 		s_window = OpenWindowTagList(NULL, tags);
 	}
 	if (!s_window)
@@ -257,7 +262,10 @@ int amiga_video_open(int width, int height)
 
 	/* The border round a smaller picture is black (pen 0 of a hi-colour
 	 * screen is the Workbench grey, so fill with a colour, not a pen). */
-	FillPixelArray(&s_screen->RastPort, 0, 0, (UWORD)sw, (UWORD)sh, 0x00000000);
+	/* through the window: its layer covers the screen, and drawing into the
+	 * screen's own RastPort underneath it shows nothing on MorphOS */
+	FillPixelArray(s_window ? s_window->RPort : &s_screen->RastPort, 0, 0, (UWORD)sw, (UWORD)sh, 0x00000000);
+	s_presents = 0;
 
 #if defined(AJ_AMIGA_WOS)
 	s_touchFor68k = uaegfx_card();
@@ -459,9 +467,16 @@ void amiga_video_present(const uint16_t *pixels, int pitch, const AmigaRect *rec
 {
 	APTR    handle;
 	ULONG   base = 0, bpr = 0;
-	int     r;
+	int     r, border;
 
 	if (!s_screen || count <= 0) return;
+
+	/* The border is blacked out in the screen memory itself, like the picture:
+	 * MorphOS paints a new screen grey a moment after it opens, over anything
+	 * drawn through a RastPort before. Done with the first pictures and twice
+	 * more a little later. */
+	s_presents++;
+	border = s_presents <= 3 || s_presents == 30 || s_presents == 120;
 
 	{
 		struct TagItem tags[] =
@@ -476,6 +491,23 @@ void amiga_video_present(const uint16_t *pixels, int pitch, const AmigaRect *rec
 	if (handle && base)
 	{
 		/* Between lock and unlock: only the copy. */
+		if (border)
+		{
+			int sw = s_screen->Width, sh = s_screen->Height, row;
+			for (row = 0; row < sh; ++row)
+			{
+				uint8_t * d = (uint8_t *)base + (size_t)row * bpr;
+				if (row < s_oy || row >= s_oy + s_height) memset(d, 0, (size_t)sw * 2);
+				else
+				{
+					if (s_ox > 0) memset(d, 0, (size_t)s_ox * 2);
+					if (s_ox + s_width < sw) memset(d + (size_t)(s_ox + s_width) * 2, 0, (size_t)(sw - s_ox - s_width) * 2);
+				}
+			}
+#if defined(AJ_AMIGA_WOS)
+			if (s_touchFor68k) CopyMem((APTR)base, (APTR)base, (ULONG)((size_t)(sh - 1) * bpr + (size_t)sw * 2));
+#endif
+		}
 		for (r = 0; r < count; ++r)
 		{
 			int x = rects[r].left, y = rects[r].top;
