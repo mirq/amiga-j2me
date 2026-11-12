@@ -47,4 +47,9 @@ public final class GameAccess {
     public static void targetInfo(Graphics g, int[] out) { g.targetInfo(out); }
 
     public static short[] pixels(Image img) { return img.pix; }
+
+    public static void drawTiles(Graphics g, Image src, int tileW, int tileH, int tilesPerRow, int[] cells,
+                                 int columns, int c0, int r0, int c1, int r1, int x, int y, int[] animated) {
+        g.drawTiles(src, tileW, tileH, tilesPerRow, cells, columns, c0, r0, c1, r1, x, y, animated);
+    }
 }

@@ -24,6 +24,11 @@ public final class Native {
     public static native void blit(short[] dst, int dw, int dh, int cx, int cy, int cw, int ch,
                                    short[] src, byte[] alpha, int sw, int sh,
                                    int sx, int sy, int w, int h, int transform, int dx, int dy);
+    /** A TiledLayer's cells c0..c1-1, r0..r1-1 with the layer's corner at x, y. */
+    public static native void drawTiles(short[] dst, int dw, int dh, int cx, int cy, int cw, int ch,
+                                        short[] src, byte[] alpha, int sw, int sh, int tileW, int tileH,
+                                        int tilesPerRow, int[] cells, int columns,
+                                        int c0, int r0, int c1, int r1, int x, int y, int[] animated);
     public static native void drawRGB(short[] dst, int dw, int dh, int cx, int cy, int cw, int ch,
                                       int[] rgb, int offset, int scanlength,
                                       int x, int y, int w, int h, int processAlpha);

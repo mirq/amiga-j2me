@@ -69,6 +69,38 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_blit(void)
     KNI_ReturnVoid();
 }
 
+/* drawTiles(dst.., short[] src, byte[] alpha, sw, sh, tileW, tileH, tilesPerRow,
+ *           int[] cells, columns, c0, r0, c1, r1, x, y, int[] animated)
+ * TiledLayer.paint in one call: cells[row * columns + col] is 0 (empty), a
+ * tile number from 1, or minus an index into animated[] (from 1). */
+KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_drawTiles(void)
+{
+    const uint16_t *src; const uint8_t *alpha; const jint *cells, *anim;
+    int sw, sh, tw, th, per_row, columns, c0, r0, c1, r1, x, y, r, c;
+    DST_BEGIN(5);
+    KNI_DeclareHandle(hsrc); KNI_DeclareHandle(halpha); KNI_DeclareHandle(hcells); KNI_DeclareHandle(hanim);
+    KNI_GetParameterAsObject(8, hsrc); KNI_GetParameterAsObject(9, halpha);
+    KNI_GetParameterAsObject(15, hcells); KNI_GetParameterAsObject(23, hanim);
+    src = (const uint16_t *)SNI_GetRawArrayPointer((jarray)hsrc);
+    alpha = KNI_IsNullHandle(halpha) ? NULL : (const uint8_t *)SNI_GetRawArrayPointer((jarray)halpha);
+    cells = (const jint *)SNI_GetRawArrayPointer((jarray)hcells);
+    anim = KNI_IsNullHandle(hanim) ? NULL : (const jint *)SNI_GetRawArrayPointer((jarray)hanim);
+    sw = P(10); sh = P(11); tw = P(12); th = P(13); per_row = P(14);
+    columns = P(16); c0 = P(17); r0 = P(18); c1 = P(19); r1 = P(20); x = P(21); y = P(22);
+    for (r = r0; r < r1; r++) {
+        for (c = c0; c < c1; c++) {
+            int t = cells[r * columns + c];
+            if (t < 0) t = anim ? anim[-t - 1] : 0;
+            if (t <= 0) continue;
+            t--;
+            gfx_blit(&dst, src, alpha, sw, sh, (t % per_row) * tw, (t / per_row) * th, tw, th, 0,
+                     x + c * tw, y + r * th);
+        }
+    }
+    KNI_EndHandles();
+    KNI_ReturnVoid();
+}
+
 /* drawRGB(dst.., int[] rgb, off, scan, x, y, w, h, processAlpha) */
 KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_drawRGB(void)
 {

@@ -4,6 +4,7 @@
  */
 package javax.microedition.lcdui.game;
 
+import javax.microedition.lcdui.GameAccess;
 import javax.microedition.lcdui.Graphics;
 import javax.microedition.lcdui.Image;
 
@@ -112,16 +113,9 @@ public class TiledLayer extends Layer {
         if (r0 < 0) r0 = 0;
         if (c1 > columns) c1 = columns;
         if (r1 > rows) r1 = rows;
-        for (int r = r0; r < r1; r++) {
-            int py = y + r * cellHeight;
-            for (int c = c0; c < c1; c++) {
-                int t = cells[r * columns + c];
-                if (t < 0) t = animated[-t - 1];
-                if (t == 0) continue;
-                t--;
-                g.drawRegion(image, (t % tilesPerRow) * cellWidth, (t / tilesPerRow) * cellHeight,
-                             cellWidth, cellHeight, 0, x + c * cellWidth, py, Graphics.TOP | Graphics.LEFT);
-            }
+        if (c0 < c1 && r0 < r1) {
+            GameAccess.drawTiles(g, image, cellWidth, cellHeight, tilesPerRow, cells, columns,
+                                 c0, r0, c1, r1, x, y, animated);
         }
     }
 
