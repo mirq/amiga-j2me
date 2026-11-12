@@ -255,8 +255,9 @@ int amiga_video_open(int width, int height)
 	s_ox     = (sw - width) / 2;
 	s_oy     = (sh - height) / 2;
 
-	/* The border round a smaller picture is black. */
-	SetRast(&s_screen->RastPort, 0);
+	/* The border round a smaller picture is black (pen 0 of a hi-colour
+	 * screen is the Workbench grey, so fill with a colour, not a pen). */
+	FillPixelArray(&s_screen->RastPort, 0, 0, (UWORD)sw, (UWORD)sh, 0x00000000);
 
 #if defined(AJ_AMIGA_WOS)
 	s_touchFor68k = uaegfx_card();

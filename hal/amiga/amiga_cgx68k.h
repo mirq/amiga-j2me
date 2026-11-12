@@ -102,6 +102,11 @@ extern struct Library *CyberGfxBase;
 	     UWORD, ___w, d5, UWORD, ___h, d6, UBYTE, ___fmt, d7, \
 	     , CyberGfxBase)
 
+#define FillPixelArray(___rp, ___x, ___y, ___w, ___h, ___argb) \
+	LP6(0x96, ULONG, FillPixelArray, struct RastPort *, ___rp, a1, UWORD, ___x, d0, UWORD, ___y, d1, \
+	UWORD, ___w, d2, UWORD, ___h, d3, ULONG, ___argb, d4, \
+	, CyberGfxBase)
+
 #define LockBitMapTagList(___bm, ___tags) \
 	LP2(0xa8, APTR, LockBitMapTagList, APTR, ___bm, a0, struct TagItem *, ___tags, a1, \
 	    , CyberGfxBase)

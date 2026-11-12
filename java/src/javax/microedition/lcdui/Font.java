@@ -14,12 +14,14 @@ public final class Font {
 
     private static final Font[] cache = new Font[6 * 8];
     private final int face, style, size;
-    final int index;            // native font: size * 2 + bold
+    final int index;            // native font: size (0..4) * 2 + bold
     private final int height, ascent;
 
     private Font(int face, int style, int size) {
         this.face = face; this.style = style; this.size = size;
-        int s = size == SIZE_SMALL ? 0 : (size == SIZE_LARGE ? 2 : 1);
+        // Five native sizes (7, 8, 9, 11, 14 px); small screens get the smaller three
+        int tier = Display.height < 110 ? 0 : (Display.height < 200 ? 1 : 2);
+        int s = tier + (size == SIZE_SMALL ? 0 : (size == SIZE_LARGE ? 2 : 1));
         index = s * 2 + ((style & STYLE_BOLD) != 0 ? 1 : 0);
         int info = Native.fontInfo(index);
         height = info >> 8; ascent = info & 0xff;

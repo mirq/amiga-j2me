@@ -64,8 +64,8 @@ typedef struct GfxFont {
     const uint16_t *rows;       /* height rows per glyph, MSB = left pixel */
 } GfxFont;
 
-/* index = size * 2 + bold; size 0 = small, 1 = medium, 2 = large */
-#define GFX_FONT_COUNT 6
+/* index = size * 2 + bold; sizes 0..4 = 7, 8, 9, 11 and 14 pixel fonts */
+#define GFX_FONT_COUNT 10
 extern const GfxFont gfx_fonts[GFX_FONT_COUNT];
 
 int  gfx_char_width(const GfxFont *f, unsigned ch);

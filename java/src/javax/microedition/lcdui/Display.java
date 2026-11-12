@@ -25,7 +25,7 @@ public class Display {
     private static final Object PAINT_LOCK = new Object();
 
     static int width = 240, height = 320;
-    static final int SOFT_BAR = 18;
+    static int SOFT_BAR = 18;        // set in open(): the small bold font's height + 4
     static Display instance;
 
     // HAL event types and raw key codes (hal.h)
@@ -56,6 +56,7 @@ public class Display {
     /** Called once by the launcher before the MIDlet is created. */
     public static void open(int w, int h) {
         width = w; height = h;
+        SOFT_BAR = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL).getHeight() + 4;
         if (Native.videoOpen(w, h) != 0) throw new RuntimeException("cannot open the display");
         instance = new Display();
     }

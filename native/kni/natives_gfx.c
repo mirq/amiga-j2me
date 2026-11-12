@@ -83,7 +83,7 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_drawRGB(void)
 
 static const GfxFont *font_of(int idx)
 {
-    if (idx < 0 || idx >= GFX_FONT_COUNT) idx = 2;
+    if (idx < 0 || idx >= GFX_FONT_COUNT) idx = 6;
     return &gfx_fonts[idx];
 }
 

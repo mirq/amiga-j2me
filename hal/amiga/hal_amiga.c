@@ -18,6 +18,11 @@ int hal_init(int argc, char **argv)
     struct DateStamp d;
     (void)argc; (void)argv;
     if (!amiga_platform_init()) return -1;
+#if defined(__mc68000__)
+    /* Java doubles are 64-bit: round every FPU result to double, not to the
+     * 68881's 80-bit default (FPCR precision bits 7-6 = 10). Per task. */
+    __asm__ volatile ("fmove.l #0x80,%fpcr");
+#endif
     /* The date once from DOS; afterwards only the monotonic clock is read
      * (on WarpOS it never leaves the PPC). */
     DateStamp(&d);

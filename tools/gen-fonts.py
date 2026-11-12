@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate native/gfx/fontdata.c: 1-bit bitmap fonts from DejaVu Sans.
 
-Three sizes (MIDP small / medium / large), each plain and bold. Glyph rows are
+Five pixel sizes, each plain and bold; MIDP small / medium / large are three
+neighbouring ones, chosen by the screen height (Font.java). Glyph rows are
 16-bit words, MSB = leftmost pixel. Covers ASCII, Latin-1, Latin Extended-A
 (Central European) and Cyrillic, plus a few symbols.
 Usage: tools/gen-fonts.py [out.c]   (needs Pillow and the DejaVu TTFs)
@@ -10,7 +11,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 TTF = "/usr/share/fonts/truetype/dejavu/DejaVuSans%s.ttf"
-SIZES = [("small", 9), ("medium", 11), ("large", 14)]   # pixel sizes passed to FreeType
+SIZES = [("s7", 7), ("s8", 8), ("s9", 9), ("s11", 11), ("s14", 14)]   # pixel sizes passed to FreeType
 RANGES = [(0x20, 0x7E), (0xA0, 0x17F), (0x400, 0x45F), (0x490, 0x491),
           (0x2013, 0x2014), (0x2018, 0x201E), (0x2022, 0x2022), (0x2026, 0x2026),
           (0x20AC, 0x20AC), (0x2116, 0x2116), (0x2122, 0x2122)]
