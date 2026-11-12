@@ -32,7 +32,7 @@ int hal_init(int argc, char **argv)
     return 0;
 }
 
-void hal_shutdown(void) { amiga_platform_exit(); }
+void hal_shutdown(void) { hal_tls_shutdown(); amiga_platform_exit(); }
 
 const char *hal_platform_name(void)
 {

@@ -33,6 +33,31 @@ public class McTest extends MIDlet implements Runnable {
             System.out.println("load failed: " + t);
             t.printStackTrace();
         }
+        // the Vodafone and JBlend flavours: each draws the old-format figure into an image; count what was drawn
+        try {
+            Image vi = Image.createImage(64, 64), ji = Image.createImage(64, 64);
+            com.vodafone.v10.graphics.j3d.Figure vf = new com.vodafone.v10.graphics.j3d.Figure("/mc_old.mbac");
+            vf.setTexture(new com.vodafone.v10.graphics.j3d.Texture("/mc.bmp", true));
+            com.vodafone.v10.graphics.j3d.AffineTrans va = new com.vodafone.v10.graphics.j3d.AffineTrans();
+            va.setIdentity();
+            ((com.vodafone.v10.graphics.j3d.Graphics3D) vi.getGraphics()).drawFigure(vf, 0, 0,
+                new com.vodafone.v10.graphics.j3d.FigureLayout(va, 2048, 2048, 32, 32), new com.vodafone.v10.graphics.j3d.Effect3D());
+            com.jblend.graphics.j3d.Figure jf = new com.jblend.graphics.j3d.Figure("/mc_old.mbac");
+            jf.setTexture(new com.jblend.graphics.j3d.Texture("/mc.bmp", true));
+            com.jblend.graphics.j3d.AffineTrans ja = new com.jblend.graphics.j3d.AffineTrans();
+            ja.setIdentity();
+            ((com.jblend.graphics.j3d.Graphics3D) ji.getGraphics()).drawFigure(jf, 0, 0,
+                new com.jblend.graphics.j3d.FigureLayout(ja, 2048, 2048, 32, 32), new com.jblend.graphics.j3d.Effect3D());
+            int[] px = new int[64 * 64];
+            int vn = 0, jn = 0;
+            vi.getRGB(px, 0, 64, 0, 0, 64, 64);
+            for (int i = 0; i < px.length; i++) if ((px[i] & 0xFFFFFF) != 0xFFFFFF) vn++;
+            ji.getRGB(px, 0, 64, 0, 0, 64, 64);
+            for (int i = 0; i < px.length; i++) if ((px[i] & 0xFFFFFF) != 0xFFFFFF) jn++;
+            System.out.println("vodafone drew " + vn + " pixels, jblend " + jn);
+        } catch (Throwable t) {
+            System.out.println("vodafone/jblend failed: " + t);
+        }
         Vector3D v = new Vector3D(3, 4, 0);
         v.unit();
         AffineTrans r = new AffineTrans();

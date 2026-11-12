@@ -14,12 +14,12 @@ set(CMAKE_C_FLAGS_RELEASE "-O2")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 if(AJ_TARGET STREQUAL "host")
-  set(HAL_SRC hal/sdl-host/hal_host.c hal/net/hal_net_posix.c)
+  set(HAL_SRC hal/sdl-host/hal_host.c hal/net/hal_net_posix.c hal/net/hal_tls_none.c)
 elseif(AJ_TARGET STREQUAL "aos3-m68k" OR AJ_TARGET STREQUAL "morphos-ppc" OR AJ_TARGET STREQUAL "wos-ppc")
   # The Amiga platform layer (from the civctp2 port) + our HAL on top of it
   set(HAL_SRC hal/amiga/hal_amiga.c hal/amiga/amiga_platform.c hal/amiga/amiga_clock.c
               hal/amiga/amiga_log.c hal/amiga/amiga_video.c hal/amiga/amiga_input.c
-              hal/amiga/amiga_audio.c)
+              hal/amiga/amiga_audio.c hal/amiga/hal_tls_amissl.c)
   if(AJ_TARGET STREQUAL "aos3-m68k")
     set(AJ_PLATFORM_DEF AJ_AMIGA_060)
     list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)   # size-class malloc over exec

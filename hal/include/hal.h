@@ -74,6 +74,15 @@ int  hal_net_write(int handle, const void *buf, int len);   /* bytes written, or
 int  hal_net_available(int handle);                          /* bytes that can be read without blocking */
 void hal_net_close(int handle);
 
+/* TLS client connections (AmiSSL on the Amiga); handles are separate from the
+ * hal_net ones. open: >= 0, or -1 (no TLS library, no connection, bad certificate). */
+int  hal_tls_open(const char *host, int port);
+int  hal_tls_read(int handle, void *buf, int len);    /* >0, 0 = closed, -1 error */
+int  hal_tls_write(int handle, const void *buf, int len);
+int  hal_tls_available(int handle);
+void hal_tls_close(int handle);
+void hal_tls_shutdown(void);
+
 /* ---- input ---- */
 enum { HAL_EV_NONE = 0, HAL_EV_KEY, HAL_EV_POINTER, HAL_EV_POINTER_MOVE, HAL_EV_QUIT };
 

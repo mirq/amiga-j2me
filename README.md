@@ -55,11 +55,12 @@ screen mode; AHI for sound (optional).
   `ui`/`lcdui` Image), Samsung (`com.samsung.util`), Motorola
   (`multimedia`, `funlight`, `midi`). Vibration and lights do nothing.
 - **Networking**: `socket://` and `http://` (HTTP/1.0) through
-  bsdsocket.library; the calls block. No https, datagrams or server sockets.
+  bsdsocket.library, `ssl://` and `https://` through AmiSSL 5 when it is
+  installed (certificates are checked against AmiSSL's store; `setenv
+  AJ_TLS_NOVERIFY 1` turns that off). The calls block. No datagrams or server
+  sockets.
 - **Platform layer** (`hal/amiga`, from the author's civctp2 port): RTG screen,
   input, timers, AHI, a fast `malloc`.
-
-Not there yet: https.
 
 ## Settings per game
 

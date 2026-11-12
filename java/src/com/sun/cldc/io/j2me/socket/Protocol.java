@@ -19,6 +19,8 @@ public class Protocol implements ConnectionBaseInterface, SocketConnection {
     private String host;
     private int port;
     private boolean open;
+    /** Set by the ssl:// subclass: the connection is wrapped in TLS. */
+    protected boolean tls;
     private final int[] options = { 0, 0, 0, 8192, 8192 };
 
     public Connection openPrim(String name, int mode, boolean timeouts) throws IOException {
@@ -35,8 +37,8 @@ public class Protocol implements ConnectionBaseInterface, SocketConnection {
         }
         byte[] cstring = new byte[host.length() + 1];
         for (int i = 0; i < host.length(); i++) cstring[i] = (byte) host.charAt(i);
-        handle = open0(cstring, port, mode);
-        if (handle < 0) throw new IOException("cannot connect to " + host + ":" + port);
+        handle = open0(cstring, port, tls ? mode | 0x100 : mode);
+        if (handle < 0) throw new IOException((tls ? "no secure connection to " : "cannot connect to ") + host + ":" + port);
         open = true;
         return this;
     }

@@ -24,6 +24,8 @@ import javax.microedition.io.StreamConnection;
 public class Protocol implements ConnectionBaseInterface, HttpConnection {
     private String url, host, file = "/", query, ref;
     private int port = 80;
+    /** "http", or "https" in the subclass (then the socket is an ssl:// one). */
+    protected String scheme = "http";
     private String method = GET;
     private final Vector reqKeys = new Vector(), reqValues = new Vector();
     private final Vector respKeys = new Vector(), respValues = new Vector();
@@ -35,8 +37,9 @@ public class Protocol implements ConnectionBaseInterface, HttpConnection {
     private boolean closed;
 
     public Connection openPrim(String name, int mode, boolean timeouts) throws IOException {
-        if (!name.startsWith("//")) throw new IllegalArgumentException("bad http URL");
-        url = "http:" + name;
+        if (!name.startsWith("//")) throw new IllegalArgumentException("bad URL");
+        url = scheme + ":" + name;
+        if (scheme.equals("https")) port = 443;
         String rest = name.substring(2);
         int slash = rest.indexOf('/');
         String hostPort = slash < 0 ? rest : rest.substring(0, slash);
@@ -57,7 +60,7 @@ public class Protocol implements ConnectionBaseInterface, HttpConnection {
     }
 
     public String getURL() { return url; }
-    public String getProtocol() { return "http"; }
+    public String getProtocol() { return scheme; }
     public String getHost() { return host; }
     public String getFile() { return file; }
     public String getRef() { return ref; }
@@ -114,13 +117,13 @@ public class Protocol implements ConnectionBaseInterface, HttpConnection {
     private void connect() throws IOException {
         if (closed) throw new IOException("closed");
         if (in != null) return;
-        socket = (StreamConnection) Connector.open("socket://" + host + ":" + port);
+        socket = (StreamConnection) Connector.open((scheme.equals("https") ? "ssl://" : "socket://") + host + ":" + port);
         OutputStream out = socket.openOutputStream();
         StringBuffer rq = new StringBuffer();
         rq.append(method).append(' ').append(file);
         if (query != null) rq.append('?').append(query);
         rq.append(" HTTP/1.0\r\nHost: ").append(host);
-        if (port != 80) rq.append(':').append(port);
+        if (port != (scheme.equals("https") ? 443 : 80)) rq.append(':').append(port);
         rq.append("\r\n");
         byte[] data = body == null ? null : body.toByteArray();
         if (data != null && find(reqKeys, "Content-Length") < 0) {
