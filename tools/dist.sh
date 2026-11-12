@@ -26,6 +26,7 @@ TXT
 }
 if [ -f build/aos3-m68k-rel/vm/j2me ]; then
   mkdir -p dist/aos3-68060
+  tools/check-m68k-bittest.sh build/aos3-m68k-rel/vm/j2me   # a known miscompile of bebbo's gcc: stop if it is back
   # stripped, then code, data and BSS in one hunk: keeps the data out of "ppc memory"
   # on machines with WarpOS (see tools/hunkmerge.py)
   /opt/amiga/bin/m68k-amigaos-strip -o dist/aos3-68060/j2me.strip build/aos3-m68k-rel/vm/j2me

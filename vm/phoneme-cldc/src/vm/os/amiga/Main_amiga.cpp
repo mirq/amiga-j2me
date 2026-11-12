@@ -31,6 +31,18 @@ void JVMSPI_Exit(int code) {
   longjmp(aj_exit_jmp, 1);
 }
 
+/* A failed VM assertion (BREAKPOINT): the error text is out already; stop
+ * the VM where it stands and return to main() with a failure code. */
+extern "C" void aj_vm_fatal(void) {
+  static int once;
+  if (!once) {
+    once = 1;
+    hal_log("amiga-j2me: the VM stopped after an internal error\n");
+  }
+  aj_exit_code = 20;
+  longjmp(aj_exit_jmp, 1);
+}
+
 jboolean JVMSPI_IsRestrictedPackage(const char* pkg_name, int name_length) {
   (void)pkg_name; (void)name_length;
   return KNI_FALSE;

@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Seconds between 1970-01-01 and the Amiga epoch 1978-01-01 */
 #define AMIGA_EPOCH_OFFSET 252460800LL
@@ -64,6 +65,9 @@ int __attribute__((noinline)) hal_run_with_stack(int (*fn)(void), size_t size)
     size = (size + 15) & ~(size_t)15;
     mem = AllocMem(size, MEMF_FAST);
     if (!mem) return fn();              /* no Fast RAM: stay on the stack we have */
+#ifdef AJ_MALLOC_POISON
+    memset(mem, 0xA5, size);            /* test builds: a used machine's stack memory holds junk */
+#endif
     s_swap.stk_Lower = mem;
     s_swap.stk_Upper = (ULONG)mem + size;
     s_swap.stk_Pointer = (APTR)((ULONG)mem + size - 32);

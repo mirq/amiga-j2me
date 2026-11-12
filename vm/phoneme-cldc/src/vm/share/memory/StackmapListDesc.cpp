@@ -41,13 +41,23 @@ void StackmapListDesc::initialize(OopDesc* klass, int size) {
   OopDesc::initialize(klass);
 }
 
+// amiga-j2me: the flag test lives in a function of its own, on a value in a
+// register. Written inline, bebbo's m68k gcc 6.5 compiled "(*entries & 1) == 0"
+// to "btst #-24,(a0)", which tests bit 24 of the entry, not bit 0: long maps
+// were then skipped (and collected) whenever the heap's addresses had bit 24
+// set, and short maps were taken for pointers at random.
+// tools/check-m68k-bittest.sh looks for that instruction in every build.
+static bool aj_is_long_map_entry(unsigned int entry_stat) __attribute__((noinline));
+static bool aj_is_long_map_entry(unsigned int entry_stat) {
+  return (entry_stat & 1u) == 0;
+}
+
 void StackmapListDesc::variable_oops_do(void do_oop(OopDesc**)) {
   unsigned int* entries = stackmap_entries_base();
   unsigned int* end = entries + _entry_count;
 
   while (entries < end) {
-    unsigned int _entry_stat = *entries;
-    if (!(_entry_stat & SHORT_ENTRY_FLAG)) {
+    if (aj_is_long_map_entry(*entries)) {
       do_oop((OopDesc**)entries);
     }
     ++ entries;

@@ -146,9 +146,13 @@ inline unsigned int _rotr(unsigned int x, unsigned int y) {
 
 #elif defined(AMIGA_J2ME)
 
-// amiga-j2me (m68k / PPC): no debugger trap, just stop hard
-#define BREAKPOINT __builtin_trap()
-#define panic()    __builtin_trap()
+// amiga-j2me (m68k / PPC): no debugger trap. A trap instruction is a
+// Software Failure alert that halts the whole Amiga, and the message the VM
+// has just printed is lost with it: leave through the normal exit path instead
+// (Main_amiga.cpp).
+extern "C" void aj_vm_fatal(void);
+#define BREAKPOINT aj_vm_fatal()
+#define panic()    aj_vm_fatal()
 inline unsigned int _rotr(unsigned int x, unsigned int y) {
    return (x >> y) | (x << (32 - y));
 }
