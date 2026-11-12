@@ -13,13 +13,16 @@ Picasso96) and a 16-bit screen mode; AHI for sound (optional); a TCP/IP
 stack for games that go online, and AmiSSL 5 for https (optional).
 Keep aj_classes.zip in the same drawer as j2me.
 
-Keys: arrows, Return/Space = fire, F1/F2 = soft keys, 0-9, numpad * and /,
-Esc = quit. -w/-h set the screen size the game sees (try 128x128, 176x208
+Keys: arrows, Return = fire, Space = 0, Ctrl = 5, F1/F2 = soft keys, 0-9,
+numpad * and /, Esc = quit. Two arrows together send the diagonal key
+(up+right = 3, up+left = 1, down+left = 7, down+right = 9). -w/-h set the screen size the game sees (try 128x128, 176x208
 or 240x320, whatever the game was made for); -scale 2 or 3 enlarges it.
 
 Settings per game: a text file game.jar.cfg next to the game, with lines
 w=176, h=208, scale=2, heap=16, or name=value for a system property the
 game asks for (microedition.platform=Nokia6230, microedition.locale=pl).
+Keys per game: aj.keys=space:fire,ctrl:none (amiga key:phone key, see the
+README on GitHub) and aj.diagonals=off (or four keys, default 1379).
 
 Source and licence (GPLv2): https://github.com/mirq/amiga-j2me
 TXT

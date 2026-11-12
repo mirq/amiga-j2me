@@ -206,35 +206,156 @@ public class Display {
 
     // ---- input ----
 
+    /* ---- key mapping ----
+     * Defaults: arrows, Return/Enter = fire, Space = 0, Ctrl = 5, F1/F2 = soft
+     * keys, digit keys and the numeric pad = 0..9. Two arrows held together
+     * (up+right and so on) send the phone's diagonal key instead (1, 3, 7, 9).
+     * Per game (<game.jar>.cfg, or -D on the VM's command line):
+     *   aj.keys=space:fire,ctrl:5,a:1      key:phone key, comma separated. Keys:
+     *       space return enter ctrl lshift rshift lalt ralt lamiga ramiga tab
+     *       del backspace up down left right f1..f10, a..z, or a raw code (0x40).
+     *       Phone keys: 0..9 * # fire up down left right soft1 soft2 clear none
+     *   aj.diagonals=1379                   up-left, up-right, down-left,
+     *       down-right; "off" (or "none") sends the two arrows as they are. */
+    private static final int[] KEYMAP = new int[128];
+    private static int[] DIAG = { Canvas.KEY_NUM1, Canvas.KEY_NUM3, Canvas.KEY_NUM7, Canvas.KEY_NUM9 };
+    private static final String KEYS = "qwertyuiop", KEYS2 = "asdfghjkl", KEYS3 = "zxcvbnm";
+    static {
+        for (int i = 0x01; i <= 0x09; i++) KEYMAP[i] = Canvas.KEY_NUM1 + i - 0x01;   // top row 1..9
+        KEYMAP[0x0A] = Canvas.KEY_NUM0; KEYMAP[0x0F] = Canvas.KEY_NUM0;
+        KEYMAP[0x1D] = Canvas.KEY_NUM1; KEYMAP[0x1E] = Canvas.KEY_NUM2; KEYMAP[0x1F] = Canvas.KEY_NUM3;
+        KEYMAP[0x2D] = Canvas.KEY_NUM4; KEYMAP[0x2E] = Canvas.KEY_NUM5; KEYMAP[0x2F] = Canvas.KEY_NUM6;
+        KEYMAP[0x3D] = Canvas.KEY_NUM7; KEYMAP[0x3E] = Canvas.KEY_NUM8; KEYMAP[0x3F] = Canvas.KEY_NUM9;
+        KEYMAP[0x5D] = Canvas.KEY_STAR;                                     // numpad *
+        KEYMAP[0x5C] = Canvas.KEY_POUND; KEYMAP[0x4A] = Canvas.KEY_POUND;   // numpad / and -
+        KEYMAP[0x4C] = Canvas.KEY_UP; KEYMAP[0x4D] = Canvas.KEY_DOWN;
+        KEYMAP[0x4F] = Canvas.KEY_LEFT; KEYMAP[0x4E] = Canvas.KEY_RIGHT;
+        KEYMAP[0x44] = Canvas.KEY_FIRE; KEYMAP[0x43] = Canvas.KEY_FIRE;     // Return, Enter
+        KEYMAP[0x40] = Canvas.KEY_NUM0;                                     // Space
+        KEYMAP[0x63] = Canvas.KEY_NUM5;                                     // Ctrl
+        KEYMAP[0x50] = Canvas.KEY_SOFT_LEFT; KEYMAP[0x51] = Canvas.KEY_SOFT_RIGHT;   // F1, F2
+        KEYMAP[0x41] = Canvas.KEY_CLEAR; KEYMAP[0x46] = Canvas.KEY_CLEAR;   // Backspace, Del
+        String k = null, d = null;
+        try { k = System.getProperty("aj.keys"); d = System.getProperty("aj.diagonals"); } catch (Throwable t) { }
+        if (k != null) parseKeys(k);
+        if (d != null) {
+            d = d.trim().toLowerCase();
+            if (d.equals("off") || d.equals("none") || d.equals("0")) DIAG = null;
+            else if (d.length() == 4) {
+                int[] m = new int[4];
+                for (int i = 0; i < 4; i++) m[i] = phoneKey(d.substring(i, i + 1));
+                DIAG = m;
+            } else System.out.println("aj.diagonals: four keys (like 1379) or off, not " + d);
+        }
+    }
+
+    private static int amigaKey(String n) {
+        if (n.startsWith("0x")) { try { return Integer.parseInt(n.substring(2), 16) & 127; } catch (Exception e) { return -1; } }
+        if (n.length() == 1) {
+            char c = n.charAt(0);
+            int i;
+            if (c >= '1' && c <= '9') return 0x01 + c - '1';
+            if (c == '0') return 0x0A;
+            if ((i = KEYS.indexOf(c)) >= 0) return 0x10 + i;
+            if ((i = KEYS2.indexOf(c)) >= 0) return 0x20 + i;
+            if ((i = KEYS3.indexOf(c)) >= 0) return 0x31 + i;
+            return -1;
+        }
+        if (n.length() >= 2 && n.charAt(0) == 'f') {
+            try { int f = Integer.parseInt(n.substring(1)); if (f >= 1 && f <= 10) return 0x50 + f - 1; } catch (Exception e) { }
+        }
+        String[] names = { "space", "return", "enter", "ctrl", "lshift", "rshift", "lalt", "ralt",
+                           "lamiga", "ramiga", "tab", "del", "backspace", "up", "down", "left", "right", "esc" };
+        int[] codes =    { 0x40, 0x44, 0x43, 0x63, 0x60, 0x61, 0x64, 0x65,
+                           0x66, 0x67, 0x42, 0x46, 0x41, 0x4C, 0x4D, 0x4F, 0x4E, 0x45 };
+        for (int i = 0; i < names.length; i++) if (names[i].equals(n)) return codes[i];
+        return -1;
+    }
+
+    /** A phone key by name; -1: not one. 0 is "none". */
+    private static int phoneKey(String n) {
+        if (n.length() == 1) {
+            char c = n.charAt(0);
+            if (c >= '0' && c <= '9') return Canvas.KEY_NUM0 + c - '0';
+            if (c == '*') return Canvas.KEY_STAR;
+            if (c == '#') return Canvas.KEY_POUND;
+        }
+        String[] names = { "fire", "up", "down", "left", "right", "soft1", "soft2", "clear", "none" };
+        int[] codes = { Canvas.KEY_FIRE, Canvas.KEY_UP, Canvas.KEY_DOWN, Canvas.KEY_LEFT, Canvas.KEY_RIGHT,
+                        Canvas.KEY_SOFT_LEFT, Canvas.KEY_SOFT_RIGHT, Canvas.KEY_CLEAR, 0 };
+        for (int i = 0; i < names.length; i++) if (names[i].equals(n)) return codes[i];
+        return -1;
+    }
+
+    private static void parseKeys(String spec) {
+        int at = 0;
+        while (at < spec.length()) {
+            int end = spec.indexOf(',', at);
+            if (end < 0) end = spec.length();
+            String item = spec.substring(at, end).trim().toLowerCase();
+            at = end + 1;
+            if (item.length() == 0) continue;
+            int colon = item.indexOf(':');
+            int from = colon > 0 ? amigaKey(item.substring(0, colon).trim()) : -1;
+            int to = colon > 0 ? phoneKey(item.substring(colon + 1).trim()) : -1;
+            if (from < 0 || from == 0x45 || to == -1) { System.out.println("aj.keys: cannot use \"" + item + "\""); continue; }
+            KEYMAP[from] = to;
+        }
+    }
+
     /** Raw Amiga key code (+ the keymap's character) to a MIDP key code; 0 = none. */
     private static int mapKey(int raw, int ch) {
-        if (raw >= 0x01 && raw <= 0x09) return Canvas.KEY_NUM1 + raw - 0x01;   // top row 1..9
-        switch (raw) {
-        case 0x0A: case 0x0F: return Canvas.KEY_NUM0;
-        case 0x1D: return Canvas.KEY_NUM1;
-        case 0x1E: return Canvas.KEY_NUM2;
-        case 0x1F: return Canvas.KEY_NUM3;
-        case 0x2D: return Canvas.KEY_NUM4;
-        case 0x2E: return Canvas.KEY_NUM5;
-        case 0x2F: return Canvas.KEY_NUM6;
-        case 0x3D: return Canvas.KEY_NUM7;
-        case 0x3E: return Canvas.KEY_NUM8;
-        case 0x3F: return Canvas.KEY_NUM9;
-        case 0x5D: return Canvas.KEY_STAR;      // numpad *
-        case 0x5C: case 0x4A: return Canvas.KEY_POUND;  // numpad / and -
-        case 0x4C: return Canvas.KEY_UP;
-        case 0x4D: return Canvas.KEY_DOWN;
-        case 0x4F: return Canvas.KEY_LEFT;
-        case 0x4E: return Canvas.KEY_RIGHT;
-        case 0x44: case 0x43: case 0x40: return Canvas.KEY_FIRE;   // Return, Enter, Space
-        case 0x50: return Canvas.KEY_SOFT_LEFT;     // F1
-        case 0x51: return Canvas.KEY_SOFT_RIGHT;    // F2
-        case 0x41: case 0x46: return Canvas.KEY_CLEAR;  // Backspace, Del
-        default: break;
-        }
+        if (KEYMAP[raw] != 0) return KEYMAP[raw];
+        if (raw == 0x40) return 0;          // Space mapped to none: no character either
         if (ch == '*') return Canvas.KEY_STAR;
         if (ch == '#') return Canvas.KEY_POUND;
         return ch > 32 && ch < 256 ? ch : 0;
+    }
+
+    /* Arrows held now (bit per direction, by how many keys hold it) and the
+     * direction keys the game has been told are down. */
+    private final int[] dirHeld = new int[4];       // up, down, left, right
+    private int sentDirs;                           // bits 0-3 arrows, 4-7 diagonals 1 3 7 9
+
+    private static int dirIndex(int key) {
+        switch (key) {
+        case Canvas.KEY_UP: return 0;
+        case Canvas.KEY_DOWN: return 1;
+        case Canvas.KEY_LEFT: return 2;
+        case Canvas.KEY_RIGHT: return 3;
+        default: return -1;
+        }
+    }
+
+    private static int sentKey(int bit) {
+        switch (bit) {
+        case 0: return Canvas.KEY_UP;
+        case 1: return Canvas.KEY_DOWN;
+        case 2: return Canvas.KEY_LEFT;
+        case 3: return Canvas.KEY_RIGHT;
+        default: return DIAG[bit - 4];
+        }
+    }
+
+    /** What the game should see for the arrows held now: one diagonal key, or the arrows. */
+    private int wantedDirs() {
+        boolean u = dirHeld[0] > 0, d = dirHeld[1] > 0, l = dirHeld[2] > 0, r = dirHeld[3] > 0;
+        if (DIAG != null && (u ^ d) && (l ^ r)) return 1 << (4 + (u ? 0 : 2) + (l ? 0 : 1));
+        return (u ? 1 : 0) | (d ? 2 : 0) | (l ? 4 : 0) | (r ? 8 : 0);
+    }
+
+    /** Tells the game about the change from sentDirs to what is wanted now;
+     *  a repeat of a held arrow repeats whatever is being sent. */
+    private void updateDirs(boolean repeat) {
+        int want = wantedDirs();
+        for (int b = 0; b < 8; b++)
+            if ((sentDirs & ~want & (1 << b)) != 0 && sentKey(b) != 0) enqueue(Q_KEY_RELEASED, sentKey(b), 0);
+        for (int b = 0; b < 8; b++) {
+            if ((want & (1 << b)) == 0 || sentKey(b) == 0) continue;
+            if ((sentDirs & (1 << b)) == 0) enqueue(Q_KEY_PRESSED, sentKey(b), 0);
+            else if (repeat) enqueue(Q_KEY_REPEATED, sentKey(b), 0);
+        }
+        sentDirs = want;
     }
 
     /** The character a key types in a text field: printable, or 8 (backspace), 10 (return). */
@@ -263,6 +384,22 @@ public class Display {
                     int key = mapKey(raw, ev[5]);
                     if (key == 0 && typed(raw, ev[5]) == 0) break;
                     int bit = gameBit(key);
+                    int dir = dirIndex(key);
+                    if (dir >= 0) {
+                        // arrows go through the diagonal logic; getKeyStates sees the arrows
+                        if (down) {
+                            boolean repeat = rawDown[raw];
+                            if (!repeat) dirHeld[dir]++;
+                            rawDown[raw] = true;
+                            downBits |= bit; latchedBits |= bit;
+                            updateDirs(repeat);
+                        } else if (rawDown[raw]) {
+                            rawDown[raw] = false;
+                            if (--dirHeld[dir] == 0) downBits &= ~bit;
+                            updateDirs(false);
+                        }
+                        break;
+                    }
                     if (down) {
                         enqueue(rawDown[raw] ? Q_KEY_REPEATED : Q_KEY_PRESSED, key, typed(raw, ev[5]));
                         rawDown[raw] = true;

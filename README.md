@@ -7,8 +7,9 @@ mobile-phone Java games (`.jar`) on a 68060 or a PowerPC Amiga.
 j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-heap MB] [-rms DIR] [-v] game.jar|game.jad
 ```
 
-Keys: arrows, Return/Space = fire, F1/F2 = soft keys, 0-9, numpad `*` and `/`,
-Esc = quit. `-w`/`-h` set the screen size the game sees (128x128, 176x208,
+Keys: arrows, Return = fire, Space = 0, Ctrl = 5, F1/F2 = soft keys, 0-9,
+numpad `*` and `/`, Esc = quit. Two arrows together send the phone's diagonal
+key (up+right = 3, up+left = 1, down+left = 7, down+right = 9). `-w`/`-h` set the screen size the game sees (128x128, 176x208,
 240x320, ...: whatever the game was made for); `-scale 2` shows every pixel
 2x2, for cards without small screen modes.
 
@@ -77,6 +78,20 @@ microedition.locale=pl
 
 `w`, `h`, `scale` and `heap` are the command line options (which win); every
 other line is a system property for `System.getProperty`.
+
+Two of them change the keys:
+
+```
+aj.keys=space:fire,ctrl:none,a:1
+aj.diagonals=off
+```
+
+`aj.keys` is a comma-separated list of `amiga key:phone key`. Amiga keys:
+`space return enter ctrl lshift rshift lalt ralt lamiga ramiga tab del
+backspace up down left right f1`..`f10`, `a`..`z`, `0`..`9` or a raw key code
+(`0x40`). Phone keys: `0`..`9 * # fire up down left right soft1 soft2 clear
+none`. `aj.diagonals` names the keys sent for up+left, up+right, down+left and
+down+right (default `1379`); `off` sends the two arrows as they are.
 
 ## Build
 
