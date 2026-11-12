@@ -14,7 +14,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O2")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 if(AJ_TARGET STREQUAL "host")
-  set(HAL_SRC hal/sdl-host/hal_host.c)
+  set(HAL_SRC hal/sdl-host/hal_host.c hal/net/hal_net_posix.c)
 elseif(AJ_TARGET STREQUAL "aos3-m68k" OR AJ_TARGET STREQUAL "morphos-ppc" OR AJ_TARGET STREQUAL "wos-ppc")
   # The Amiga platform layer (from the civctp2 port) + our HAL on top of it
   set(HAL_SRC hal/amiga/hal_amiga.c hal/amiga/amiga_platform.c hal/amiga/amiga_clock.c
@@ -23,11 +23,17 @@ elseif(AJ_TARGET STREQUAL "aos3-m68k" OR AJ_TARGET STREQUAL "morphos-ppc" OR AJ_
   if(AJ_TARGET STREQUAL "aos3-m68k")
     set(AJ_PLATFORM_DEF AJ_AMIGA_060)
     list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)   # size-class malloc over exec
+    list(APPEND HAL_SRC hal/amiga/hal_net_bsdsocket.c)
   elseif(AJ_TARGET STREQUAL "wos-ppc")
     set(AJ_PLATFORM_DEF AJ_AMIGA_WOS)
     list(APPEND HAL_SRC hal/amiga/amiga_malloc.c)
+    list(APPEND HAL_SRC hal/net/hal_net_posix.c)    # BSD names from MOS2WOS's libglosswos
+    # the socket headers only for this file (they clash with the OS headers elsewhere)
+    set_source_files_properties(hal/net/hal_net_posix.c PROPERTIES
+      COMPILE_OPTIONS "-isystem;${WOS_SDK_ROOT}/netinclude")
   else()
     set(AJ_PLATFORM_DEF AJ_AMIGA_MOS)
+    list(APPEND HAL_SRC hal/amiga/hal_net_bsdsocket.c)
   endif()
 else()
   message(FATAL_ERROR "Unsupported AJ_TARGET ${AJ_TARGET}")

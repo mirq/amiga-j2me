@@ -4,6 +4,41 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* x^e for x in 0..1 and e >= 0, and e^x, without libm: pow() never returns on
+   WarpOS, and both are slow on a 68060. Exact for whole exponents; the
+   fraction is a straight line between the two nearest whole powers, which is
+   plenty for a specular highlight. */
+static float g3d_pow01(float x, float e)
+{
+    int n = (int)e;
+    float frac = e - (float)n, r = 1.0f, b = x;
+    if (x <= 0.0f) return e > 0.0f ? 0.0f : 1.0f;
+    while (n > 0) {
+        if (n & 1) r *= b;
+        b *= b;
+        n >>= 1;
+    }
+    return r * (1.0f + frac * (x - 1.0f));
+}
+
+/* ceil() to int without libm */
+static inline int iceil(float v)
+{
+    int i = (int)v;
+    return v > (float)i ? i + 1 : i;
+}
+
+static float g3d_exp(float x)
+{
+    int i;
+    float r;
+    if (x < -40.0f) return 0.0f;
+    if (x > 40.0f) x = 40.0f;
+    r = 1.0f + x * (1.0f / 1024.0f);            /* (1 + x/1024)^1024 */
+    for (i = 0; i < 10; i++) r *= r;
+    return r;
+}
+
 typedef struct { float x, y, z, w; float r, g, b, a; float u, v; float f; /* fog: 1 = clear, 0 = all fog */ } Vtx;
 
 static uint16_t *s_px;
@@ -130,7 +165,7 @@ static void transform_vertices(const G3dDraw *d)
                         if (hl > 0.0f) {
                             float ndh = (tx * hx + ty * hy + tz * hz) / hl;
                             if (ndh > 0.0f) {
-                                float sp = (float)pow(ndh, mat[13]) * att;
+                                float sp = g3d_pow01(ndh, mat[13]) * att;
                                 r += mat[10] * L[1] * sp; g += mat[11] * L[2] * sp; b += mat[12] * L[3] * sp;
                             }
                         }
@@ -144,7 +179,7 @@ static void transform_vertices(const G3dDraw *d)
             float span = d->fog_b - d->fog_a;
             o->f = span != 0.0f ? clamp01((d->fog_b + ez) / span) : 1.0f;      /* distance = -ez */
         } else if (d->fog_mode == 2) {
-            o->f = clamp01((float)exp(d->fog_a * ez));
+            o->f = clamp01(g3d_exp(d->fog_a * ez));
         } else o->f = 1.0f;
 
         if (d->tc) {
@@ -275,7 +310,10 @@ static void tri(const SV *a, const SV *b, const SV *c)
     if (a->y > b->y) { t = a; a = b; b = t; }
 
     area = (b->x - a->x) * (c->y - a->y) - (c->x - a->x) * (b->y - a->y);
-    if (area == 0.0f) return;
+    /* slivers: their gradients are huge and they cover no pixel centre worth
+       drawing (with the 68881's extended precision a degenerate triangle's
+       area comes out tiny instead of exactly zero) */
+    if (area > -1e-3f && area < 1e-3f) return;
     inv = 1.0f / area;
 #define GRAD(f, gx, gy) \
     gx = ((b->f - a->f) * (c->y - a->y) - (c->f - a->f) * (b->y - a->y)) * inv; \
@@ -286,7 +324,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
 #undef GRAD
 
     bounds(&x0b, &y0b, &x1b, &y1b);
-    y_start = (int)ceil(a->y - 0.5f); y_end = (int)ceil(c->y - 0.5f);
+    y_start = iceil(a->y - 0.5f); y_end = iceil(c->y - 0.5f);
     if (y_start < y0b) y_start = y0b;
     if (y_end > y1b) y_end = y1b;
 
@@ -300,7 +338,7 @@ static void tri(const SV *a, const SV *b, const SV *c)
         if (py < b->y) xr = (b->y == a->y) ? b->x : a->x + (b->x - a->x) * (py - a->y) / (b->y - a->y);
         else           xr = (c->y == b->y) ? b->x : b->x + (c->x - b->x) * (py - b->y) / (c->y - b->y);
         if (xl > xr) { float s = xl; xl = xr; xr = s; }
-        xs = (int)ceil(xl - 0.5f); xe = (int)ceil(xr - 0.5f);
+        xs = iceil(xl - 0.5f); xe = iceil(xr - 0.5f);
         if (xs < x0b) xs = x0b;
         if (xe > x1b) xe = x1b;
         n = xe - xs;

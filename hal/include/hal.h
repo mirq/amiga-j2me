@@ -65,6 +65,15 @@ void hal_audio_set_fill(HalAudioFill fill, void *user);
  * the output needs next. */
 void hal_audio_update(void);
 
+/* ---- network: blocking TCP client sockets ---- */
+/* Connects to host:port. Returns a handle >= 0, or -1. */
+int  hal_net_open(const char *host, int port);
+/* Reads up to len bytes: > 0 = bytes read, 0 = the peer closed, -1 = error. Blocks. */
+int  hal_net_read(int handle, void *buf, int len);
+int  hal_net_write(int handle, const void *buf, int len);   /* bytes written, or -1 */
+int  hal_net_available(int handle);                          /* bytes that can be read without blocking */
+void hal_net_close(int handle);
+
 /* ---- input ---- */
 enum { HAL_EV_NONE = 0, HAL_EV_KEY, HAL_EV_POINTER, HAL_EV_POINTER_MOVE, HAL_EV_QUIT };
 
