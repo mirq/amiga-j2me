@@ -26,7 +26,11 @@ TXT
 }
 if [ -f build/aos3-m68k-rel/vm/j2me ]; then
   mkdir -p dist/aos3-68060
-  /opt/amiga/bin/m68k-amigaos-strip -o dist/aos3-68060/j2me build/aos3-m68k-rel/vm/j2me
+  # stripped, then code, data and BSS in one hunk: keeps the data out of "ppc memory"
+  # on machines with WarpOS (see tools/hunkmerge.py)
+  /opt/amiga/bin/m68k-amigaos-strip -o dist/aos3-68060/j2me.strip build/aos3-m68k-rel/vm/j2me
+  python3 tools/hunkmerge.py dist/aos3-68060/j2me.strip dist/aos3-68060/j2me
+  rm -f dist/aos3-68060/j2me.strip
   cp build/api/aj_classes.zip dist/aos3-68060/; readme dist/aos3-68060
 fi
 if [ -f build/wos-ppc/vm/j2me ]; then

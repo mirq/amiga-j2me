@@ -45,7 +45,35 @@ const char *hal_platform_name(void)
 #endif
 }
 
+#if !defined(AJ_AMIGA_WOS) && !defined(AJ_AMIGA_MOS)
+/* 68k: fn runs on a stack of its own, in Fast RAM asked for by name. The
+ * stack libnix sets up at start comes from a plain MEMF_PUBLIC request, which
+ * a machine with WarpOS can serve from "ppc memory", many times slower for
+ * the 68060 (see amiga_malloc.c). Nothing between the two StackSwap calls may
+ * live on the stack, hence the statics. */
+static struct StackSwapStruct s_swap;
+static int (*s_stack_fn)(void);
+static int s_stack_rc;
+
+int __attribute__((noinline)) hal_run_with_stack(int (*fn)(void), size_t size)
+{
+    void *mem;
+    size = (size + 15) & ~(size_t)15;
+    mem = AllocMem(size, MEMF_FAST);
+    if (!mem) return fn();              /* no Fast RAM: stay on the stack we have */
+    s_swap.stk_Lower = mem;
+    s_swap.stk_Upper = (ULONG)mem + size;
+    s_swap.stk_Pointer = (APTR)((ULONG)mem + size - 32);
+    s_stack_fn = fn;
+    StackSwap(&s_swap);
+    s_stack_rc = s_stack_fn();
+    StackSwap(&s_swap);
+    FreeMem(mem, size);
+    return s_stack_rc;
+}
+#else
 int hal_run_with_stack(int (*fn)(void), size_t size) { (void)size; return fn(); }
+#endif
 
 void hal_log(const char *fmt, ...)
 {
@@ -193,3 +221,11 @@ int hal_poll_event(HalEvent *ev)
 }
 
 void hal_wait_event(uint32_t timeout_ms) { amiga_input_wait(timeout_ms); }
+
+/* diagnostics: where exec places a block for the given requirement flags (freed at once) */
+void *aj_probe_alloc(unsigned long size, unsigned long flags)
+{
+    void *m = AllocMem(size, flags);
+    if (m) FreeMem(m, size);
+    return m;
+}

@@ -69,7 +69,16 @@
 #define HEADER          4u          /* tag */
 #define LOCK()          Forbid()
 #define UNLOCK()        Permit()
-#define SYS_ALLOC(n)    AllocMem((n), MEMF_ANY)
+/* Fast RAM asked for by name. A plain MEMF_ANY or MEMF_PUBLIC request can be
+ * turned into one for "ppc memory" on a machine with WarpOS, which a 68060
+ * reaches many times more slowly (seen on a real A4000: the VM ran 25 times
+ * slower). Without Fast RAM, anything will do. */
+static void *sys_alloc(unsigned long n)
+{
+    void *m = AllocMem(n, MEMF_FAST);
+    return m ? m : AllocMem(n, MEMF_ANY);
+}
+#define SYS_ALLOC(n)    sys_alloc(n)
 #define SYS_FREE(p, n)  FreeMem((p), (n))
 #endif
 

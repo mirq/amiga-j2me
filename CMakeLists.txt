@@ -107,6 +107,7 @@ function(aj_add_program name)
 endfunction()
 
 aj_add_program(aj_hello src/hello.c)
+aj_add_program(aj_probe src/probe.c)
 
 if(NOT AJ_TARGET STREQUAL "host" OR CMAKE_C_FLAGS MATCHES "-m32")
   add_subdirectory(vm)

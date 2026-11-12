@@ -161,7 +161,22 @@ public:
   // IMPL_NOTE: these are used by StackmapChecker to compress stack maps.
   // This optimization is too expensive in binary romizer, so we may
   // as well remove the code for Monet mode to save footprint.
-  virtual void should_not_reach_here() { SHOULD_NOT_REACH_HERE(); }
+  // amiga-j2me: say where, before the assertion stops the VM
+  virtual void should_not_reach_here() {
+    extern int aj_sm_gc_bci, aj_sm_block_bci;
+    tty->print("AJ stackmap: walk hit bytecode 0x%x at bci %d (map at bci %d, frame bci %d) in ",
+               (int)method()->bytecode_at_raw(bci()), bci(), aj_sm_block_bci, aj_sm_gc_bci);
+    method()->print_name_on(tty);
+    tty->cr();
+    {
+      int from = aj_sm_block_bci, to = aj_sm_gc_bci + 4, size = method()->code_size();
+      if (to > size) to = size;
+      tty->print("AJ stackmap: code from %d:", from);
+      for (int i = from; i < to && i < from + 64; i++) tty->print(" %x", (int)method()->bytecode_at_raw(i) & 0xff);
+      tty->cr();
+    }
+    SHOULD_NOT_REACH_HERE();
+  }
 
   virtual void branch(int /*dest*/ JVM_TRAPS) { 
     JVM_IGNORE_TRAPS;

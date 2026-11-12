@@ -101,6 +101,8 @@ public final class Native {
      */
     public static native void g3dFigure(short[] dst, int[] i, float[] pos, float[] nrm, float[] params,
                                         int[] tris, int[] opts, short[] tex, byte[] texAlpha, short[] sphere);
+    /** Diagnostics: microseconds for a native timing shape (0 register loop, 1 call table, 2 globals). */
+    public static native int probe(int what);
     /** zlib data to outLen bytes; null when it is damaged. */
     public static native byte[] inflate(byte[] src, int off, int len, int outLen);
 

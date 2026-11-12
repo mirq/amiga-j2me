@@ -102,3 +102,55 @@ KNIEXPORT KNI_RETURNTYPE_OBJECT Java_aj_Native_listFiles(void)
     free(c.buf);
     KNI_EndHandlesAndReturnObject(hs);
 }
+
+
+/* ---- timing probe (diagnostics): int probe(int what) = microseconds ----
+ * 0: 1M register loop, 1: 1M ops through a call table with state in globals
+ * (the shape of the interpreter), 2: 1M reads/writes of two globals */
+static volatile uint32_t pr_a, pr_b;
+static uint8_t *pr_pc;
+static uint32_t *pr_sp;
+static uint32_t pr_stack[64];
+static void (*pr_table[256])(void);
+static volatile int pr_stop;
+static void pr_push(void) { *pr_sp++ = pr_pc[1]; pr_pc += 2; }
+static void pr_add(void)  { pr_sp--; pr_sp[-1] += pr_sp[0]; pr_pc += 1; }
+static void pr_pop(void)  { pr_sp--; pr_pc += 1; }
+static void pr_loop(void) { if (--pr_a == 0) pr_stop = 1; pr_pc -= 6; }
+
+KNIEXPORT KNI_RETURNTYPE_INT Java_aj_Native_probe(void)
+{
+    static uint8_t code[] = { 0, 1, 0, 2, 1, 2, 3 };
+    int what = KNI_GetParameterAsInt(1);
+    uint64_t t0 = hal_monotonic_micros();
+    uint32_t i, acc = 0;
+    if (what == 0) {
+        for (i = 0; i < 1000000u; i++) acc += i ^ (acc >> 3);
+        pr_b = acc;
+    } else if (what == 1) {
+        pr_table[0] = pr_push; pr_table[1] = pr_add; pr_table[2] = pr_pop; pr_table[3] = pr_loop;
+        pr_a = 200000; pr_pc = code; pr_sp = pr_stack; pr_stop = 0;
+        while (!pr_stop) pr_table[*pr_pc]();
+    } else if (what == 2) {
+        pr_a = 0; pr_b = 0;
+        for (i = 0; i < 1000000u; i++) { pr_a += i; pr_b ^= pr_a; }
+    } else if (what == 3) {                 /* the same two cells, on the C stack */
+        volatile uint32_t sa = 0, sb = 0;
+        for (i = 0; i < 1000000u; i++) { sa += i; sb ^= sa; }
+    } else if (what == 4) {                 /* and in malloc memory */
+        volatile uint32_t *m = (volatile uint32_t *)malloc(64);
+        if (m) { m[0] = 0; m[1] = 0; for (i = 0; i < 1000000u; i++) { m[0] += i; m[1] ^= m[0]; } free((void *)m); }
+#if defined(__mc68000__)
+    } else if (what >= 20 && what < 30) {   /* where does exec put 70000 bytes for these flags, in this process? */
+        static const unsigned long fl[] = { 0, 1, 4, 4 | 0x400, 4 | 0x100, 0x400, 0x100, 1 | 0x10000, 4 | 0x400 | 0x100 | 1 };
+        extern void *aj_probe_alloc(unsigned long size, unsigned long flags);
+        KNI_ReturnInt((jint)(size_t)aj_probe_alloc(what == 29 ? 9000000 : 70000, fl[what - 20 > 8 ? 0 : what - 20]));
+#endif
+    } else if (what == 10) { KNI_ReturnInt((jint)(size_t)&pr_a);
+    } else if (what == 11) { KNI_ReturnInt((jint)(size_t)&Java_aj_Native_probe);
+    } else if (what == 12) { volatile int on_stack = 0; KNI_ReturnInt((jint)(size_t)&on_stack);
+    } else if (what == 13) { void *m = malloc(64); free(m); KNI_ReturnInt((jint)(size_t)m);
+    } else if (what == 14) { KNI_ReturnInt((jint)(size_t)code);
+    }
+    KNI_ReturnInt((jint)(hal_monotonic_micros() - t0));
+}

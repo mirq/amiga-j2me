@@ -491,6 +491,8 @@ int StackmapGenerator::find_compressed_stackmap(StackmapList* stackmaps,
 
 // generates the GC stackmap for the given bci - handles 
 // compressed verifier stackmaps only
+int aj_sm_gc_bci, aj_sm_block_bci;     // amiga-j2me: for the diagnostic in should_not_reach_here
+
 ReturnOop StackmapGenerator::generate_stackmap(StackmapList* method_stackmaps,
                                                int gc_bci) {
   // The CHECK macros used by this function is purely to conform to the APIs
@@ -569,6 +571,7 @@ ReturnOop StackmapGenerator::generate_stackmap(StackmapList* method_stackmaps,
     _abstract_tos = max_locals + stack_items;
   }
 
+  aj_sm_gc_bci = gc_bci; aj_sm_block_bci = gc_block_bci;
   GUARANTEE(gc_bci >= gc_block_bci, "Invalid compressed stackmap");
 
 #if ENABLE_ROM_GENERATOR
