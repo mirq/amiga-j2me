@@ -38,9 +38,9 @@ screen mode; AHI for sound (optional).
   tones. MIDI is played by a small built-in synthesiser (`native/audio`), no
   sound bank needed.
 - **3D** (JSR-184, M3G): own implementation: scene graph, animation, `.m3g`
-  loader in Java, software rasteriser in C (`native/g3d`): lighting, textures
-  with perspective correction, blending, depth buffer, sprites, skinning,
-  morphing.
+  loader in Java, software rasteriser in C (`native/g3d`): lighting with
+  specular highlights, fog, two texture units with perspective correction,
+  blending, depth buffer, sprites, skinning, morphing, picking.
 - **Mascot Capsule micro3d v3** (`com.mascotcapsule.micro3d.v3`): own
   implementation on the same rasteriser: MBAC figures (versions 2-5) with
   bones, patterns and several textures, MTRA actions, BMP textures with a
@@ -56,7 +56,23 @@ screen mode; AHI for sound (optional).
   input, timers, AHI, a fast `malloc`.
 
 Not there yet: https, the Motorola `com.motorola.graphics.j3d` and iDEN 3D
-packages, Mascot Capsule sphere maps, per-game settings files.
+packages, Mascot Capsule sphere maps.
+
+## Settings per game
+
+A text file named like the game plus `.cfg` (`game.jar.cfg`) is read at start:
+
+```
+w=176
+h=208
+scale=2
+heap=16
+microedition.platform=Nokia6230
+microedition.locale=pl
+```
+
+`w`, `h`, `scale` and `heap` are the command line options (which win); every
+other line is a system property for `System.getProperty`.
 
 ## Build
 

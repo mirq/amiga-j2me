@@ -5,7 +5,12 @@
  * Starts the VM with the runtime's class library (aj_classes.zip, next to
  * this program) and the JAR on the class path and runs aj.Launcher, which
  * starts the MIDlet named in the JAR's manifest. Record stores go to
- * <game.jar>.rms unless -rms names another directory. */
+ * <game.jar>.rms unless -rms names another directory.
+ *
+ * Per-game settings: a text file <game.jar>.cfg with lines "name=value".
+ * w, h, scale and heap are the options above (the command line wins); any
+ * other name is a system property the game can read, such as
+ * microedition.platform=Nokia6230 or microedition.locale=pl. */
 #include "hal.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +28,61 @@ static int s_argc;
 static char **s_argv;
 static int run_vm(void) { return aj_vm_main(s_argc, s_argv); }
 
+#define MAX_PROPS 24
+static char s_props[MAX_PROPS][160];
+static int s_nprops;
+static char s_cfg_w[16], s_cfg_h[16], s_cfg_scale[16], s_cfg_heap[16];
+
+/* -Dname=value for the VM; a later one with the same name replaces an earlier one */
+static void set_prop(const char *name, size_t nlen, const char *value, size_t vlen)
+{
+    int i;
+    if (nlen + vlen + 4 > sizeof(s_props[0])) return;
+    for (i = 0; i < s_nprops; i++)
+        if (!strncmp(s_props[i] + 2, name, nlen) && s_props[i][2 + nlen] == '=') break;
+    if (i == s_nprops) { if (s_nprops == MAX_PROPS) return; s_nprops++; }
+    sprintf(s_props[i], "-D%.*s=%.*s", (int)nlen, name, (int)vlen, value);
+}
+
+static void copy_opt(char *dst, size_t cap, const char *v, size_t n)
+{
+    if (n >= cap) n = cap - 1;
+    memcpy(dst, v, n); dst[n] = 0;
+}
+
+static void read_cfg(const char *path)
+{
+    size_t size = 0, i = 0;
+    char *d;
+    if (hal_path_type(path) != 1) return;
+    d = (char *)hal_load_file(path, &size);
+    if (!d) return;
+    while (i < size) {
+        size_t s = i, e, eq, ve;
+        while (i < size && d[i] != '\n' && d[i] != '\r') i++;
+        e = i;
+        while (i < size && (d[i] == '\n' || d[i] == '\r')) i++;
+        while (s < e && (d[s] == ' ' || d[s] == '\t')) s++;
+        if (s == e || d[s] == '#' || d[s] == ';') continue;
+        for (eq = s; eq < e && d[eq] != '='; eq++) {}
+        if (eq == e) continue;
+        ve = e;
+        while (ve > eq + 1 && (d[ve - 1] == ' ' || d[ve - 1] == '\t')) ve--;
+        {
+            const char *name = d + s, *val = d + eq + 1;
+            size_t nlen = eq - s, vlen = ve - eq - 1;
+            while (nlen > 0 && (name[nlen - 1] == ' ' || name[nlen - 1] == '\t')) nlen--;
+            while (vlen > 0 && (*val == ' ' || *val == '\t')) { val++; vlen--; }
+            if (nlen == 1 && name[0] == 'w') copy_opt(s_cfg_w, sizeof(s_cfg_w), val, vlen);
+            else if (nlen == 1 && name[0] == 'h') copy_opt(s_cfg_h, sizeof(s_cfg_h), val, vlen);
+            else if (nlen == 5 && !strncmp(name, "scale", 5)) copy_opt(s_cfg_scale, sizeof(s_cfg_scale), val, vlen);
+            else if (nlen == 4 && !strncmp(name, "heap", 4)) copy_opt(s_cfg_heap, sizeof(s_cfg_heap), val, vlen);
+            else if (nlen > 0) set_prop(name, nlen, val, vlen);
+        }
+    }
+    hal_free(d);
+}
+
 static void usage(void)
 {
     hal_log("amiga-j2me - J2ME (MIDP 2.0 / CLDC 1.1) runtime\n"
@@ -32,14 +92,15 @@ static void usage(void)
             "  -heap    Java heap in MB (default 8)\n"
             "  -rms     directory for the game's saved data (default: <game.jar>.rms)\n"
             "  -v       print start-up progress\n"
+            "settings per game: <game.jar>.cfg with lines w=, h=, scale=, heap= or property=value\n"
             "keys: arrows, Return/Space = fire, F1/F2 = soft keys, 0-9, numpad * and /, Esc = quit\n");
 }
 
 int main(int argc, char **argv)
 {
-    static char heap_opt[32], classpath[640], rms[320], jar_from_jad[320];
-    static char *vm_argv[32];
-    const char *jar = NULL, *cls = NULL, *w = NULL, *h = NULL, *rms_dir = NULL, *heap = "8";
+    static char heap_opt[32], classpath[640], rms[320], jar_from_jad[320], cfg[330];
+    static char *vm_argv[64];
+    const char *jar = NULL, *cls = NULL, *w = NULL, *h = NULL, *rms_dir = NULL, *heap = NULL;
     const char *scale = NULL, *jad = NULL;
     const char *classes = getenv("AJ_CLASSES");
     int verbose = 0, i, n = 0, rc;
@@ -91,12 +152,31 @@ int main(int argc, char **argv)
     if (strlen(classes) + strlen(jar) + 2 > sizeof(classpath) || strlen(jar) + 5 > sizeof(rms)) {
         hal_log("j2me: path too long\n"); hal_shutdown(); return 10;
     }
+    /* what a MIDP 2.0 phone says about itself; the game's .cfg may change any of it */
+#define PROP(n, v) set_prop(n, strlen(n), v, strlen(v))
+    PROP("microedition.profiles", "MIDP-2.0");
+    PROP("microedition.platform", "amiga-j2me");
+    PROP("microedition.locale", "en");
+    PROP("microedition.m3g.version", "1.0");
+    PROP("microedition.media.version", "1.1");
+    PROP("supports.mixing", "true");
+    PROP("supports.audio.capture", "false");
+    PROP("supports.video.capture", "false");
+    PROP("supports.recording", "false");
+#undef PROP
+    sprintf(cfg, "%s.cfg", jar);
+    read_cfg(cfg);
+    if (!w && s_cfg_w[0]) w = s_cfg_w;
+    if (!h && s_cfg_h[0]) h = s_cfg_h;
+    if (!scale && s_cfg_scale[0]) scale = s_cfg_scale;
+    if (!heap) heap = s_cfg_heap[0] ? s_cfg_heap : "8";
     sprintf(heap_opt, "=HeapCapacity%dM", atoi(heap) > 0 ? atoi(heap) : 8);
     sprintf(classpath, "%s,%s", classes, jar);
     if (!rms_dir) { sprintf(rms, "%s.rms", jar); rms_dir = rms; }
 
     vm_argv[n++] = argv[0];
     vm_argv[n++] = heap_opt;
+    for (i = 0; i < s_nprops; i++) vm_argv[n++] = s_props[i];
     vm_argv[n++] = (char *)"-classpath";
     vm_argv[n++] = classpath;
     vm_argv[n++] = (char *)"aj.Launcher";
