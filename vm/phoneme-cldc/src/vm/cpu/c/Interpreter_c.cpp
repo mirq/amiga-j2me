@@ -112,6 +112,24 @@ extern "C" {
 
   /* bytecodes dispatch table */
   static func_t interpreter_dispatch_table[256+WIDE_OFFSET];
+#if AMIGA_J2ME && !defined(AJ_NO_THREADED_DISPATCH)
+  // amiga-j2me, threaded dispatch. Every bytecode has two functions:
+  //   bc_body_x  what the bytecode does (as before)
+  //   bc_impl_x  the body, then a jump to the next bytecode's bc_impl
+  // interpreter_dispatch_table holds the bc_impl functions; running through
+  // it costs one indirect jump per bytecode, with no return to a loop.
+  // Code that must run exactly one bytecode (a handler calling another
+  // handler, the re-dispatch after quickening, tracing) uses the bodies:
+  // AJ_BODY(x)() or AJ_ONE_TABLE[...]().
+  static func_t interpreter_body_table[256+WIDE_OFFSET];
+#define AJ_THREADED 1
+#define AJ_BODY(x) bc_body_##x
+#define AJ_ONE_TABLE interpreter_body_table
+#else
+#define AJ_THREADED 0
+#define AJ_BODY(x) bc_impl_##x
+#define AJ_ONE_TABLE interpreter_dispatch_table
+#endif
 
   // has_Interpreter, has_FloatingPoint, has_TraceBytecodes
   jint assembler_loop_type = 0x1 + 0x40 + 0x4;
@@ -1735,7 +1753,7 @@ enum {
 
   static void dispatch_return_point() {
     if (!CURRENT_HAS_PENDING_EXCEPTION) {
-      interpreter_dispatch_table[GET_THREAD_INT(int1_value)]();
+      AJ_ONE_TABLE[GET_THREAD_INT(int1_value)]();
     }
   }
 
@@ -1753,7 +1771,7 @@ enum {
 #if ENABLE_JAVA_DEBUGGER
     if (_debugger_active != 0) {
       if (*g_jpc == Bytecodes::_breakpoint) {
-        interpreter_dispatch_table[GET_THREAD_INT(int1_value)]();
+        AJ_ONE_TABLE[GET_THREAD_INT(int1_value)]();
       }
     }
 #endif
@@ -2385,6 +2403,15 @@ enum {
 
 #define START_BYTECODES
 #define END_BYTECODES
+#if AJ_THREADED
+// (the Java debugger's single-step hook is not kept: ENABLE_JAVA_DEBUGGER is off here)
+#define BYTECODE_IMPL_NO_STEP(x)                                            \
+  static inline void bc_body_##x() __attribute__((always_inline));          \
+  static void bc_impl_##x() { bc_body_##x(); interpreter_dispatch_table[*g_jpc](); } \
+  static inline void bc_body_##x() {
+#define BYTECODE_IMPL(x) BYTECODE_IMPL_NO_STEP(x)
+#define BYTECODE_IMPL_END }
+#else
 #define BYTECODE_IMPL_NO_STEP(x) static void bc_impl_##x() {
 #if ENABLE_JAVA_DEBUGGER
 #define BYTECODE_IMPL(x) static void bc_impl_##x() {            \
@@ -2395,6 +2422,7 @@ enum {
 #define BYTECODE_IMPL(x) static void bc_impl_##x() {
 #endif
 #define BYTECODE_IMPL_END }
+#endif
 
   START_BYTECODES
 
@@ -3678,7 +3706,7 @@ enum {
 
   BYTECODE_IMPL(wide)
     ADVANCE(1);
-    interpreter_dispatch_table[(int)*g_jpc + WIDE_OFFSET]();
+    AJ_ONE_TABLE[(int)*g_jpc + WIDE_OFFSET]();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(multianewarray)
@@ -3709,7 +3737,7 @@ enum {
   BYTECODE_IMPL_NO_STEP(breakpoint)
 #if ENABLE_JAVA_DEBUGGER
     interpreter_call_vm((address)&handle_breakpoint, T_INT);
-    interpreter_dispatch_table[GET_THREAD_INT(int1_value)]();
+    AJ_ONE_TABLE[GET_THREAD_INT(int1_value)]();
 #else
     UNIMPL(breakpoint);
 #endif
@@ -3769,23 +3797,23 @@ enum {
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_init_1_putstatic)
-    bc_impl_fast_1_putstatic();
+    AJ_BODY(fast_1_putstatic)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_init_2_putstatic)
-    bc_impl_fast_2_putstatic();
+    AJ_BODY(fast_2_putstatic)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_init_a_putstatic)
-    bc_impl_fast_a_putstatic();
+    AJ_BODY(fast_a_putstatic)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_init_1_getstatic)
-    bc_impl_fast_1_getstatic();
+    AJ_BODY(fast_1_getstatic)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_init_2_getstatic)
-    bc_impl_fast_2_getstatic();
+    AJ_BODY(fast_2_getstatic)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_bputfield)
@@ -3965,13 +3993,17 @@ enum {
     invoke_java_method(method, 5);
   BYTECODE_IMPL_END
 
+#if AJ_THREADED
+  static inline void bc_body_fast_invokenative() __attribute__((always_inline));
+#else
   static void bc_impl_fast_invokenative();
+#endif
 
   static void invokenative_return_point() {
     if (GET_THREAD_INT(async_redo)) {
       // Clear Thread.async_redo so that we won't loop indefinitely
       SET_THREAD_INT(async_redo, 0);
-      bc_impl_fast_invokenative();
+      AJ_BODY(fast_invokenative)();
       return;
     }
 
@@ -3984,33 +4016,33 @@ enum {
     switch (GET_BYTE(0)) {
       case T_INT:
         PUSH(GET_THREAD_INT(int1_value));
-        bc_impl_ireturn();
+        AJ_BODY(ireturn)();
         break;
 
       case T_FLOAT:
         PUSH(GET_THREAD_INT(int1_value));
-        bc_impl_freturn();
+        AJ_BODY(freturn)();
         break;
 
       case T_VOID:
-        bc_impl_return();
+        AJ_BODY(return)();
         break;
 
       case T_LONG:
         PUSH(GET_THREAD_INT(int2_value));
         PUSH(GET_THREAD_INT(int1_value));
-        bc_impl_lreturn();
+        AJ_BODY(lreturn)();
         break;
 
       case T_DOUBLE:
         PUSH(GET_THREAD_INT(int2_value));
         PUSH(GET_THREAD_INT(int1_value));
-        bc_impl_dreturn();
+        AJ_BODY(dreturn)();
         break;
 
       case T_OBJECT:
         PUSH(GET_THREAD_INT(obj_value));
-        bc_impl_areturn();
+        AJ_BODY(areturn)();
         break;
 
       default:
@@ -4040,23 +4072,23 @@ enum {
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_new)
-    bc_impl_new();
+    AJ_BODY(new)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_init_new)
-    bc_impl_new();
+    AJ_BODY(new)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_anewarray)
-    bc_impl_anewarray();
+    AJ_BODY(anewarray)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_checkcast)
-    bc_impl_checkcast();
+    AJ_BODY(checkcast)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_instanceof)
-    bc_impl_instanceof();
+    AJ_BODY(instanceof)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(fast_invokevirtual_final)
@@ -4105,7 +4137,7 @@ enum {
 
   BYTECODE_IMPL(aload_0_fast_igetfield_1)
     aload(0);
-    bc_impl_fast_igetfield_1();
+    AJ_BODY(fast_igetfield_1)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(aload_0_fast_igetfield_4)
@@ -4126,7 +4158,7 @@ enum {
 
   BYTECODE_IMPL(aload_0_fast_agetfield_1)
     aload(0);
-    bc_impl_fast_agetfield_1();
+    AJ_BODY(fast_agetfield_1)();
   BYTECODE_IMPL_END
 
   BYTECODE_IMPL(aload_0_fast_agetfield_4)
@@ -4198,15 +4230,23 @@ enum {
 } /* of extern "C" */
 
 
+#if AJ_THREADED
+#define AJ_DEF_BODY(index, fn) interpreter_body_table[index] = &bc_body_##fn
+#else
+#define AJ_DEF_BODY(index, fn)
+#endif
 #define DEF_BC(name)               \
-    interpreter_dispatch_table[Bytecodes::_##name] = &bc_impl_##name
+    interpreter_dispatch_table[Bytecodes::_##name] = &bc_impl_##name; \
+    AJ_DEF_BODY(Bytecodes::_##name, name)
 #define DEF_BC_WIDE(name)          \
     interpreter_dispatch_table[Bytecodes::_##name + WIDE_OFFSET] = \
-       &bc_impl_##name##_wide
+       &bc_impl_##name##_wide; \
+    AJ_DEF_BODY(Bytecodes::_##name + WIDE_OFFSET, name##_wide)
 #if ENABLE_FLOAT
 #define DEF_BC_FLOAT(name)          \
     interpreter_dispatch_table[Bytecodes::_##name] = \
-       &bc_impl_##name
+       &bc_impl_##name; \
+    AJ_DEF_BODY(Bytecodes::_##name, name)
 #else
 #define DEF_BC_FLOAT(name)
 #endif
@@ -4509,6 +4549,9 @@ static void init() {
 
   // make it clean
   for (int i=0; i < ARRAY_SIZE(interpreter_dispatch_table); i++) {
+#if AJ_THREADED
+    interpreter_body_table[i] = &undef_bc;
+#endif
     interpreter_dispatch_table[i] = &undef_bc;
   }
   // init bytecodes dispatch table
@@ -4528,7 +4571,7 @@ static void Interpret() {
   if (TraceBytecodes) {
     for (;;) {
       interpreter_call_vm((address)&trace_bytecode, T_VOID);
-      interpreter_dispatch_table[*g_jpc]();
+      AJ_ONE_TABLE[*g_jpc]();        // one bytecode at a time
     }
   } else {
     for (;;) {
