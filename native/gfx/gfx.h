@@ -80,6 +80,10 @@ int  gfx_text(const GfxDst *d, const GfxFont *f, const uint16_t *text, int n,
 int gfx_decode(const uint8_t *data, int len, int *w, int *h,
                uint16_t **px, uint8_t **alpha);
 
+/* zlib-wrapped deflate data (as in .m3g files) into out (out_len bytes).
+ * Returns the number of bytes written, or -1. */
+int gfx_inflate(const uint8_t *src, int src_len, uint8_t *out, int out_len);
+
 #ifdef __cplusplus
 }
 #endif

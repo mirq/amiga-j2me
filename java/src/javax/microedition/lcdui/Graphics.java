@@ -155,6 +155,12 @@ public class Graphics {
         Native.toRGB(pix, null, sw, argb, offset, scanlength, sx, sy, w, h);
     }
 
+    short[] targetPixels() { return pix; }
+
+    void targetInfo(int[] out) {
+        out[0] = sw; out[1] = sh; out[2] = cx; out[3] = cy; out[4] = cw; out[5] = ch; out[6] = tx; out[7] = ty;
+    }
+
     // ---- text ----
 
     private int anchorX(int x, int width, int anchor) {

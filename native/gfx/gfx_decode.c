@@ -42,3 +42,8 @@ int gfx_decode(const uint8_t *data, int len, int *w, int *h,
     *px = p; *alpha = a;
     return 1;
 }
+
+int gfx_inflate(const uint8_t *src, int src_len, uint8_t *out, int out_len)
+{
+    return stbi_zlib_decode_buffer((char *)out, out_len, (const char *)src, src_len);
+}

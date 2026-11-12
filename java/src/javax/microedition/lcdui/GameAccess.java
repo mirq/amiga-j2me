@@ -39,4 +39,12 @@ public final class GameAccess {
     public static void readRGB(Graphics g, int[] argb, int offset, int scanlength, int x, int y, int w, int h) {
         g.readRGB(argb, offset, scanlength, x, y, w, h);
     }
+
+    /** The pixels a Graphics draws to (R5G6B5), for the 3D renderer. */
+    public static short[] pixels(Graphics g) { return g.targetPixels(); }
+
+    /** out = surface width, height, clip x, y, w, h (surface coordinates), translate x, y. */
+    public static void targetInfo(Graphics g, int[] out) { g.targetInfo(out); }
+
+    public static short[] pixels(Image img) { return img.pix; }
 }
