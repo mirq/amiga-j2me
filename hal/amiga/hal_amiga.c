@@ -14,6 +14,9 @@
 static int64_t s_wall_base_ms;   /* wall clock at amiga_ticks_us() == 0 */
 static int     s_video_w, s_video_h;
 
+static void *s_pad;
+static ULONG s_pad_size;
+
 int hal_init(int argc, char **argv)
 {
     struct DateStamp d;
@@ -24,6 +27,18 @@ int hal_init(int argc, char **argv)
      * 68881's 80-bit default (FPCR precision bits 7-6 = 10). Per task. */
     __asm__ volatile ("fmove.l #0x80,%fpcr");
 #endif
+#if defined(__mc68000__)
+    {
+        /* diagnostics: AJ_PAD_MB=n takes n MB of Fast RAM first (never given back
+         * before the exit), so that what the VM allocates afterwards lies at other
+         * addresses. Used to check address-dependent faults in the emulator. */
+        char env[8];
+        if (GetVar((CONST_STRPTR)"AJ_PAD_MB", (STRPTR)env, sizeof(env), GVF_GLOBAL_ONLY) > 0) {
+            s_pad_size = (ULONG)atoi(env) << 20;
+            if (s_pad_size) s_pad = AllocMem(s_pad_size, MEMF_FAST);
+        }
+    }
+#endif
     /* The date once from DOS; afterwards only the monotonic clock is read
      * (on WarpOS it never leaves the PPC). */
     DateStamp(&d);
@@ -33,7 +48,12 @@ int hal_init(int argc, char **argv)
     return 0;
 }
 
-void hal_shutdown(void) { hal_tls_shutdown(); amiga_platform_exit(); }
+void hal_shutdown(void)
+{
+    hal_tls_shutdown();
+    if (s_pad) { FreeMem(s_pad, s_pad_size); s_pad = NULL; }
+    amiga_platform_exit();
+}
 
 const char *hal_platform_name(void)
 {
