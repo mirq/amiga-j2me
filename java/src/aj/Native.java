@@ -51,7 +51,8 @@ public final class Native {
     public static native int decodeBegin(byte[] data, int off, int len);
     public static native void decodeEnd(short[] px, byte[] alpha);
 
-    public static native int videoOpen(int w, int h);
+    /** scale: each pixel shown scale x scale (1..4) */
+    public static native int videoOpen(int w, int h, int scale);
     public static native void videoClose();
     public static native void present(short[] px, int w, int h, int x, int y, int rw, int rh);
     /** ev = {type, code, down, x, y, ch}. Returns 0 when there is no event. */

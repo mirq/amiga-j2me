@@ -54,10 +54,12 @@ public class Display {
     }
 
     /** Called once by the launcher before the MIDlet is created. */
-    public static void open(int w, int h) {
+    public static void open(int w, int h) { open(w, h, 1); }
+
+    public static void open(int w, int h, int scale) {
         width = w; height = h;
         SOFT_BAR = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL).getHeight() + 4;
-        if (Native.videoOpen(w, h) != 0) throw new RuntimeException("cannot open the display");
+        if (Native.videoOpen(w, h, scale) != 0) throw new RuntimeException("cannot open the display");
         instance = new Display();
     }
 

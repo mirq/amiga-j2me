@@ -6,7 +6,7 @@ rm -rf dist; mkdir -p dist
 readme() { cat > "$1/README.txt" <<'TXT'
 amiga-j2me - J2ME (MIDP 2.0 / CLDC 1.1) runtime for the Amiga
 
-  j2me [-w WIDTH] [-h HEIGHT] [-heap MB] [-rms DIR] [-v] game.jar
+  j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-heap MB] [-rms DIR] [-v] game.jar|game.jad
 
 Needs: an RTG card with cybergraphics.library V41+ (CyberGraphX or
 Picasso96) and a 16-bit screen mode; AHI for sound (optional).
@@ -14,7 +14,7 @@ Keep aj_classes.zip in the same drawer as j2me.
 
 Keys: arrows, Return/Space = fire, F1/F2 = soft keys, 0-9, numpad * and /,
 Esc = quit. -w/-h set the screen size the game sees (try 128x128, 176x208
-or 240x320, whatever the game was made for).
+or 240x320, whatever the game was made for); -scale 2 or 3 enlarges it.
 
 Source and licence (GPLv2): https://github.com/mirq/amiga-j2me
 TXT

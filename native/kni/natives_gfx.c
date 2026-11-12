@@ -277,14 +277,30 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_decodeEnd(void)
 
 /* ---- display and input ---- */
 
+/* Integer scaling: the game's picture is shown s times as large (pixels
+ * repeated), for cards without small screen modes. */
+static int s_scale = 1, s_src_w, s_src_h;
+static uint16_t *s_scaled;
+
+/* int videoOpen(w, h, scale) */
 KNIEXPORT KNI_RETURNTYPE_INT Java_aj_Native_videoOpen(void)
 {
-    KNI_ReturnInt(hal_video_open(P(1), P(2)));
+    int w = P(1), h = P(2), scale = P(3);
+    if (scale < 1) scale = 1;
+    if (scale > 4) scale = 4;
+    free(s_scaled); s_scaled = NULL;
+    if (scale > 1) {
+        s_scaled = (uint16_t *)malloc((size_t)w * scale * h * scale * 2);
+        if (!s_scaled) scale = 1;
+    }
+    s_scale = scale; s_src_w = w; s_src_h = h;
+    KNI_ReturnInt(hal_video_open(w * scale, h * scale));
 }
 
 KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_videoClose(void)
 {
     hal_video_close();
+    free(s_scaled); s_scaled = NULL; s_scale = 1;
     KNI_ReturnVoid();
 }
 
@@ -302,8 +318,22 @@ KNIEXPORT KNI_RETURNTYPE_VOID Java_aj_Native_present(void)
     if (r.y < 0) { r.h += r.y; r.y = 0; }
     if (r.x + r.w > w) r.w = w - r.x;
     if (r.y + r.h > h) r.h = h - r.y;
-    if (r.w > 0 && r.h > 0)
-        hal_video_present((const uint16_t *)SNI_GetRawArrayPointer((jarray)hpx), w * 2, &r, 1);
+    if (r.w > 0 && r.h > 0) {
+        const uint16_t *px = (const uint16_t *)SNI_GetRawArrayPointer((jarray)hpx);
+        if (s_scale == 1 || !s_scaled || w != s_src_w || h != s_src_h) {
+            hal_video_present(px, w * 2, &r, 1);
+        } else {
+            int s = s_scale, dw = w * s, x, y, k;
+            for (y = r.y; y < r.y + r.h; y++) {
+                const uint16_t *sp = px + (size_t)y * w + r.x;
+                uint16_t *row = s_scaled + (size_t)y * s * dw + (size_t)r.x * s, *dp = row;
+                for (x = 0; x < r.w; x++) { uint16_t c = sp[x]; for (k = 0; k < s; k++) *dp++ = c; }
+                for (k = 1; k < s; k++) memcpy(row + (size_t)k * dw, row, (size_t)r.w * s * 2);
+            }
+            r.x *= s; r.y *= s; r.w *= s; r.h *= s;
+            hal_video_present(s_scaled, dw * 2, &r, 1);
+        }
+    }
     KNI_EndHandles();
     KNI_ReturnVoid();
 }
@@ -321,7 +351,7 @@ KNIEXPORT KNI_RETURNTYPE_INT Java_aj_Native_pollEvent(void)
         KNI_GetParameterAsObject(1, hev);
         {
             jint *p = (jint *)SNI_GetRawArrayPointer((jarray)hev);
-            p[0] = e.type; p[1] = e.code; p[2] = e.down; p[3] = e.x; p[4] = e.y; p[5] = e.ch;
+            p[0] = e.type; p[1] = e.code; p[2] = e.down; p[3] = e.x / s_scale; p[4] = e.y / s_scale; p[5] = e.ch;
         }
         KNI_EndHandles();
     }

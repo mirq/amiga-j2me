@@ -4,12 +4,13 @@ A J2ME runtime (MIDP 2.0 / CLDC 1.1) for the Amiga with RTG graphics: it runs
 mobile-phone Java games (`.jar`) on a 68060 or a PowerPC Amiga.
 
 ```
-j2me [-w WIDTH] [-h HEIGHT] [-heap MB] [-rms DIR] [-v] game.jar
+j2me [-w WIDTH] [-h HEIGHT] [-scale N] [-heap MB] [-rms DIR] [-v] game.jar|game.jad
 ```
 
 Keys: arrows, Return/Space = fire, F1/F2 = soft keys, 0-9, numpad `*` and `/`,
 Esc = quit. `-w`/`-h` set the screen size the game sees (128x128, 176x208,
-240x320, ...: whatever the game was made for).
+240x320, ...: whatever the game was made for); `-scale 2` shows every pixel
+2x2, for cards without small screen modes.
 
 ## Targets
 
